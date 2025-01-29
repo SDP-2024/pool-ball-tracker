@@ -27,7 +27,7 @@ pip install -r requirements.txt
 To start the program, simply run:
 
 ```bash
-python main.py --profile default
+python src/main.py --profile default
 ```
 - The `--profile` argument selects a configuration profile from `config.yaml`.
 
@@ -60,7 +60,7 @@ Modify `config.yaml` to adjust settings such as:
 To test with a different config profile:
 
 ```bash
-python main.py --profile custom_profile
+python src/main.py --profile custom_profile
 ```
 
 ---
