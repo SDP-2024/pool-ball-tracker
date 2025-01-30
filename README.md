@@ -1,12 +1,13 @@
 # **Pool Ball Detection**
 
 ## **📌 Overview**
-This project performs **pool ball detection** and **real-time stereo video stitching** using OpenCV. It supports camera calibration, image undistortion, and real-time processing of frames from two cameras.
+This project performs **pool ball and table detection** with **real-time stereo video stitching** using OpenCV. It supports camera calibration, image undistortion, and real-time processing of frames from two cameras.
 
 ## **🚀 Features**
 - **Stereo Image Stitching**: Merges left and right frames into a seamless panoramic image.
 - **Camera Calibration & Undistortion**: Uses pre-calibrated parameters to correct lens distortions.
 - **Ball Detection**: Detects and highlights balls in the stitched image, identifying their colors.
+- **Table Detection**: Detects a pool table and highlights the perimeter.
 - **Configuration via YAML**: Adjust settings dynamically without modifying the code.
 
 ---
@@ -27,15 +28,20 @@ pip install -r requirements.txt
 To start the program, simply run:
 
 ```bash
-python src/main.py --profile default
+python src/main.py
 ```
-- The `--profile` argument selects a configuration profile from `config.yaml`.
+- This will create a default configuration file and profile.
 
 ### **2️⃣ Configuration**
 Modify `config.yaml` to adjust settings such as:
 - Camera calibration parameters
 - Frame stitching frequency
 - Image resolution and processing thresholds
+
+Optionally create a new configuration profile with:
+```bash
+python src/main.py --create-profile [name]
+```
 
 ---
 
@@ -44,6 +50,7 @@ Modify `config.yaml` to adjust settings such as:
 📂 project_root/
 │-- 📂 config/                  # Configuration files
 |   |-- 📂 calibration/         # Folder for camera calibration photos 
+|   |-- config.yaml             # Configuration file
 │-- 📂 src/                     # Source code
 |   |-- 📂 detection/           # Detection code
 │   │-- 📂 processing/          # Frame processing code, including stitching
@@ -60,7 +67,7 @@ Modify `config.yaml` to adjust settings such as:
 To test with a different config profile:
 
 ```bash
-python src/main.py --profile custom_profile
+python src/main.py --profile [name]
 ```
 
 ---
