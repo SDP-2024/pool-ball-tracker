@@ -101,6 +101,10 @@ def main():
         detected_balls = ball_detector.detect(stitched_frame)
         ball_detector.draw_detected_balls(stitched_frame, detected_balls)
 
+        # Detect table and draw to frame
+        table = table_detector.detect(stitched_frame)
+        table_detector.draw_edges(stitched_frame, table)
+
 
         # Display frames
         cv.imshow("Left camera", left_frame)

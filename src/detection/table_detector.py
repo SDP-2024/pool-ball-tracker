@@ -43,7 +43,7 @@ class TableDetector:
         self.previous_corners = smoothed_corners
         return smoothed_corners
 
-    def detect_table_edges(self, frame):
+    def detect(self, frame):
         """
         Detects the edges of the table in the given frame.
 
@@ -109,4 +109,24 @@ class TableDetector:
 
     
 
-    
+    def draw_edges(self, frame, table):
+        """
+        Draws the detected table by marking the corners and connecting them with lines.
+
+        Args:
+            frame (np.ndarray): The input frame where the table is detected.
+            corners (np.ndarray): The detected corner points of the table.
+
+        Returns:
+            None
+        """
+        if table is not None and len(table) == 4:
+            # Draw corner points
+            for corner in table:
+                cv.circle(frame, tuple(map(int, corner)), 5, (0, 0, 255), -1)  # Red circles
+            
+            # Connect corners with lines
+            for i in range(4):
+                start_point = tuple(map(int, table[i]))
+                end_point = tuple(map(int, table[(i + 1) % 4]))  # Wrap around to the first point
+                cv.line(frame, start_point, end_point, (0, 255, 0), 2)  # Green lines
