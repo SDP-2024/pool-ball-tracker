@@ -182,7 +182,7 @@ def create_profile(path="../config", name="default"):
 
     profiles[name] = {
             "camera_port_1" : 0,
-            "camera_port_2" : 0,
+            "camera_port_2" : -1,
             "calibrate_cameras": False,
             "calibration_folders": [],
             "time_between_stitch": 1.0,
