@@ -2,18 +2,18 @@ profiles:
   Logi C270:
     black:
       H_lower: 0
-      H_upper: 134
+      H_upper: 179
       S_lower: 0
-      S_upper: 71
-      V_lower: 19
-      V_upper: 60
+      S_upper: 101
+      V_lower: 0
+      V_upper: 105
     red:
       H_lower: 0
-      H_upper: 179
-      S_lower: 169
+      H_upper: 11
+      S_lower: 86
       S_upper: 255
       V_lower: 0
-      V_upper: 146
+      V_upper: 255
     white:
       H_lower: 0
       H_upper: 179
@@ -23,11 +23,11 @@ profiles:
       V_upper: 255
     yellow:
       H_lower: 11
-      H_upper: 50
-      S_lower: 41
+      H_upper: 47
+      S_lower: 154
       S_upper: 255
-      V_lower: 135
-      V_upper: 173
+      V_lower: 0
+      V_upper: 255
   default:
     blue:
       H_lower: 50
