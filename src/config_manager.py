@@ -20,10 +20,6 @@ schema = {
             "schema": {"type" : "string", "min" : 0}
             },
         "time_between_stitch" : {"type" : "float", "min": 0.01},
-        "camera_width" : {"type": "integer", "min": 0},
-        "camera_height" : {"type": "integer", "min": 0},
-        "output_width" : {"type": "integer", "min" : 0},
-        "output_height" : {"type": "integer", "min": 0},
         "detector": {
             "type": "dict",
             "schema": {
@@ -124,13 +120,13 @@ def load_config(profile, path="../config"):
                         return data["profiles"]["default"]
                     else:
                         logger.warning("No profiles found in config.yaml. Using default profile.")
-                        return create_default_config(yaml_path)
+                        return create_profile(yaml_path)
             
         except Exception as e:
             logger.error(f"Error reading config.yaml: {e}")
     else:
         logger.warning("config.yaml not found. Creating a new one.")
-        return create_default_config(yaml_path)
+        return create_profile(yaml_path)
 
 
 def verify_config(data):
@@ -152,7 +148,7 @@ def verify_config(data):
         return False
 
 
-def create_default_config(yaml_path):
+def create_profile(path="../config", name="default"):
     """
     Creates and saves a default configuration to the specified YAML file.
 
@@ -162,17 +158,34 @@ def create_default_config(yaml_path):
     Returns:
         dict: The default configuration settings.
     """
-    profiles = {
-        "default": {
+    # Get the script's directory (src directory)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # If path is default (../config), go up one level and look into the config folder
+    if path == "../config":
+        yaml_path = os.path.join(script_dir, path, "config.yaml")
+    else:
+        # If another path is provided, use it directly
+        yaml_path = os.path.join(path) 
+
+    profiles = {}
+
+    # Load existing config if available
+    if os.path.exists(yaml_path):
+        try:
+            with open(yaml_path, "r") as yaml_file:
+                data = yaml.safe_load(yaml_file) or {}
+                profiles = data.get("profiles", {})
+        except Exception as e:
+            logger.error(f"Error reading config.yaml: {e}")
+            return None
+
+    profiles[name] = {
             "camera_port_1" : 0,
             "camera_port_2" : 0,
             "calibrate_cameras": False,
             "calibration_folders": [],
             "time_between_stitch": 1.0,
-            "camera_width": 1280,
-            "camera_height": 720,
-            "output_width" : 1920,
-            "output_height": 1080,
             "detector": {
                 "profile": "default",
                 "radius": 50,
@@ -194,7 +207,7 @@ def create_default_config(yaml_path):
                 "tracking_line_color": [0, 0, 255],
             },
         }
-    }
+    
     try:
         # Save the profiles to the config.yaml file
         with open(yaml_path, 'w') as yaml_file:

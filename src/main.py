@@ -1,6 +1,6 @@
 import cv2 as cv
 import argparse
-from config_manager import load_config
+from config_manager import load_config, create_profile
 from detection.ball_detector import BallDetector
 from detection.table_detector import TableDetector
 from processing.frame_processing import crop_to_middle
@@ -138,7 +138,18 @@ def parse_args():
         default='default',
         help="The name of the profile to use (default: `default`)"
     )
+
+    parser.add_argument(
+        "--create-profile",
+        type=str,
+        help="Create a new profile with the specified name."
+    )
     args = parser.parse_args()
+
+    if args.create_profile:
+        create_profile(name=args.create_profile)
+        return args.create_profile
+
     return args.profile
 
 if __name__ == "__main__":
