@@ -1,18 +1,14 @@
 profiles:
   default:
-    camera_port_1: 0
-    camera_port_2: -1
-    calibrate_cameras: False
+    calibrate_cameras: false
     calibration_folders: []
-    time_between_stitch: 1.0
-    camera_width: 1280
-    camera_height: 720
-    output_width: 1920
-    output_height: 1080
+    camera_port_1: 0
+    camera_port_2: 0
     detector:
-      profile: "default"
+      profile: default
       radius: 50
-      table_area: 20000
+      table_area: 1000
+    time_between_stitch: 1.0
     tracking:
       buffer_size: 64
       center_point_color:
@@ -32,7 +28,7 @@ profiles:
       font_scale: 0.5
       font_thickness: 2
       max_distance: 50
-      min_area: 200
+      min_area: 1000
       radius_line_color:
         - 255
         - 0
@@ -42,21 +38,16 @@ profiles:
         - 0
         - 0
         - 255
-
   logi_c270:
+    calibrate_cameras: True
+    calibration_folders: ["/logi_c270_cam1", /logi_c270_cam2]
     camera_port_1: 1
     camera_port_2: -1
-    calibrate_cameras: True
-    calibration_folders: ["/logi_c270_cam1", "/logi_c270_cam2"]
-    time_between_stitch: 1.0
-    camera_width: 1280
-    camera_height: 720
-    output_width: 1920
-    output_height: 1080
     detector:
       profile: "Logi C270"
       radius: 50
-      table_area: 3000
+      table_area: 1000
+    time_between_stitch: 1.0
     tracking:
       buffer_size: 64
       center_point_color:
@@ -76,7 +67,7 @@ profiles:
       font_scale: 0.5
       font_thickness: 2
       max_distance: 50
-      min_area: 8000
+      min_area: 1000
       radius_line_color:
         - 255
         - 0
