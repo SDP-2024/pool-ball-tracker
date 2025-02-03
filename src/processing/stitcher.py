@@ -2,6 +2,7 @@ import cv2 as cv
 import time
 import imutils
 import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -65,3 +66,47 @@ class Stitcher:
 
         return stitched_frame
     
+
+    def compute_homography(self, frame_1, frame_2):
+        gray_1 = cv.cvtColor(frame_1, cv.COLOR_BGR2GRAY)
+        gray_2 = cv.cvtColor(frame_2, cv.COLOR_BGR2GRAY)
+
+
+        orb = cv.ORB.create()
+        kp1, des1 = orb.detectAndCompute(gray_1, None)
+        kp2, des2 = orb.detectAndCompute(gray_2, None)
+
+
+        bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
+        matches = bf.match(des1, des2)
+        matches = sorted(matches, key=lambda x: x.distance)
+
+        # Extract matched keypoints
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+
+        # Compute homography matrix
+        H, _ = cv.findHomography(dst_pts, src_pts, cv.RANSAC, 5.0)
+
+        # Warp second camera's view using homography
+        height, width, _ = frame_1.shape
+        warped_img2 = cv.warpPerspective(frame_2, H, (width * 2, height))
+
+        # Merge the two images into one stitched frame
+        stitched_frame = warped_img2.copy()
+        stitched_frame[:, :width] = frame_1  # Place first camera's view in left part
+
+        # Save transformation for later use
+        np.save("homography_matrix.npy", H)
+
+
+    def warp_frame(self, H, frame_1, frame_2):
+        # Warp second camera's frame
+        warped_frame2 = cv.warpPerspective(frame_2, H, (frame_1.shape[1] * 2, frame_1.shape[0]))
+        stitched_frame = warped_frame2.copy()
+        stitched_frame[:, :frame_1.shape[1]] = frame_1  # Merge views
+
+        # Convert to HSV for color-based tracking
+        hsv = cv.cvtColor(stitched_frame, cv.COLOR_BGR2HSV)
+
+        return hsv
