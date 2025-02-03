@@ -43,25 +43,25 @@ def main():
     table_detector = TableDetector(config)
 
     # Calibrate cameras
-    mtx_left, dst_left, mtx_right, dst_right = handle_calibration(config)
+    mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
 
     stitcher = Stitcher(config)
 
-    left_camera, right_camera = None, None
+    camera_1, camera_2 = None, None
 
     # Attempt to load cameras
     try:
         logger.info("Starting cameras...")
-        left_camera = VideoStream(config["camera_port_1"]).start()
-        logger.info("Left camera started.")
+        camera_1 = VideoStream(config["camera_port_1"]).start()
+        logger.info("Camera 1 started.")
 
         # Check if second camera enabled
         if config["camera_port_2"] != -1:
-            right_camera = VideoStream(config["camera_port_2"]).start()
-            logger.info("Right camera started.")
+            camera_2 = VideoStream(config["camera_port_2"]).start()
+            logger.info("Camera 2 started.")
         else:
-            logger.warning("Right camera disabled. Continuing with left camera only.")
-            right_camera = None
+            logger.warning("Camera 2 disabled. Continuing with camera 1 only.")
+            camera_2 = None
         
     except Exception as e:
         logger.error(f"Error starting camera: {e}")
@@ -73,25 +73,25 @@ def main():
     # Create a named window with the WINDOW_NORMAL flag to allow resizing
     cv.namedWindow("Stitched Image (Cropped)", cv.WINDOW_NORMAL)
 
-    if right_camera is not None:
-        table_pts_cam1, table_pts_cam2 = manage_point_selection(config, left_camera, right_camera, mtx_left, dst_left, mtx_right, dst_right)
+    if camera_2 is not None:
+        table_pts_cam1, table_pts_cam2 = manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2)
     
     # Process the frames and perform stitching
     while True:
         # Read frames
-        left_frame = left_camera.read()
-        right_frame = right_camera.read() if right_camera else None
+        frame_1 = camera_1.read()
+        frame_2 = camera_2.read() if camera_2 else None
 
         # Fix any distortion in the cameras
-        left_frame, right_frame = undistort_cameras(config, left_frame, right_frame, mtx_left, dst_left, mtx_right, dst_right)
+        frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
 
-        if left_frame is None:
-            logger.error("Left camera frame is invalid.")
+        if frame_1 is None:
+            logger.error("Camera 1 frame is invalid.")
             continue 
 
         # Handle frame stitching if required
-        if right_frame is None:
-            stitched_frame = left_frame  # Fallback to left frame
+        if frame_2 is None:
+            stitched_frame = frame_1  # Fallback to frame 1
         else:
             # Compute homography matrices
             output_size = (800, 400)
@@ -100,8 +100,8 @@ def main():
             H1 = cv.getPerspectiveTransform(table_pts_cam1, table_rect)
             H2 = cv.getPerspectiveTransform(table_pts_cam2, table_rect)
 
-            top_down_view1 = cv.warpPerspective(left_frame, H1, output_size)
-            top_down_view2 = cv.warpPerspective(right_frame, H2, output_size)
+            top_down_view1 = cv.warpPerspective(frame_1, H1, output_size)
+            top_down_view2 = cv.warpPerspective(frame_2, H2, output_size)
 
             top_down_view1 = cv.rotate(top_down_view1, cv.ROTATE_180)
 
@@ -117,9 +117,9 @@ def main():
         table_detector.draw_edges(stitched_frame, table)
 
         # Display frames
-        cv.imshow("Left camera", left_frame)
-        if right_frame is not None:
-            cv.imshow("Right camera", right_frame)
+        cv.imshow("Camera 1", frame_1)
+        if frame_2 is not None:
+            cv.imshow("Camera 2", frame_2)
         cv.imshow("Stitched Image (Cropped)", stitched_frame)
 
         # Exit if 'q' pressed
@@ -127,9 +127,9 @@ def main():
             break
 
     # Cleanup
-    left_camera.stop()
-    if right_camera is not None:
-        right_camera.stop()
+    camera_1.stop()
+    if camera_2 is not None:
+        camera_2.stop()
     cv.destroyAllWindows()
 
 

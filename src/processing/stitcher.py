@@ -22,18 +22,18 @@ class Stitcher:
         self.last_update_time = time.time()
         self.config = config
 
-    def stitch_frames(self, left_frame, right_frame):
+    def stitch_frames(self, frame_1, frame_2):
         """
         Stitches two frames together to create a panoramic image.
 
         Args:
-            left_frame (numpy.ndarray): The left image frame.
-            right_frame (numpy.ndarray): The right image frame.
+            frame_1 (numpy.ndarray): The frame from camera 1.
+            frame_2 (numpy.ndarray): The frame from camera 2.
 
         Returns:
             numpy.ndarray: The stitched output image. If stitching fails, 
                            returns the last successfully stitched frame 
-                           or the left frame as a fallback.
+                           or the camera 1 frame as a fallback.
         """
 
         # Update the stitched frame at a fixed interval or based on other criteria
@@ -43,26 +43,26 @@ class Stitcher:
             logger.info("Forcing new stitching due to time interval.")
 
         # Resize frames for faster processing
-        left_frame = imutils.resize(left_frame, width=640, height=480)
-        right_frame = imutils.resize(right_frame, width=640, height=480)
+        frame_1 = imutils.resize(frame_1, width=640, height=480)
+        frame_2 = imutils.resize(frame_2, width=640, height=480)
 
         try:
             # If no stitched frame exists, calculate one
             if self.last_stitched_frame is None:
-                status, stitched_frame = self.stitcher.stitch([left_frame, right_frame])
+                status, stitched_frame = self.stitcher.stitch([frame_1, frame_2])
                 if status == cv.Stitcher_OK:
                     self.last_stitched_frame = stitched_frame  # Cache the stitched frame
                     logger.info("Stitching successful!")
                 else:
                     logger.error(f"Stitching failed with error code {status}")
-                    stitched_frame = self.last_stitched_frame if self.last_stitched_frame is not None else left_frame  # Fallback
+                    stitched_frame = self.last_stitched_frame if self.last_stitched_frame is not None else frame_1  # Fallback
             else:
                 # Reuse the last stitched frame without recalculating it
-                stitched_frame = self.last_stitched_frame if self.last_stitched_frame is not None else left_frame
+                stitched_frame = self.last_stitched_frame if self.last_stitched_frame is not None else frame_1
 
         except cv.error as e:
             logger.error(f"OpenCV stitching error: {e}")
-            stitched_frame = self.last_stitched_frame if self.last_stitched_frame is not None else left_frame  # Fallback
+            stitched_frame = self.last_stitched_frame if self.last_stitched_frame is not None else frame_1  # Fallback
 
         return stitched_frame
     

@@ -61,7 +61,7 @@ def calibrate_camera(path, chessboard_size=(8, 5)):
 
 def handle_calibration(config):
     """
-    Handles the calibration of the left and right cameras.
+    Handles the calibration of the cameras.
 
     Args:
         config (dict): Configuration dictionary containing calibration parameters,
@@ -69,82 +69,82 @@ def handle_calibration(config):
 
     Returns:
         tuple: Contains the camera matrices and distortion coefficients for both cameras.
-               (mtx_left, dst_left, mtx_right, dst_right)
+               (mtx_1, dst_1, mtx_2, dst_2)
     """
 
-    mtx_left, dst_left, mtx_right, dst_right = None, None, None, None
+    mtx_1, dst_1, mtx_2, dst_2 = None, None, None, None
     
     if config["calibrate_cameras"]:
         if len(config["calibration_folders"]) < 1:
             logger.error("No calibration folders supplied. Please check config.yaml.")
-            return mtx_left, dst_left, mtx_right, dst_right
+            return mtx_1, dst_1, mtx_2, dst_2
         
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        cam1_calibration_dir = os.path.join(script_dir, "../../config/calibration/" + config["calibration_folders"][0])  # Relative path
-        cam1_calibration_dir = os.path.abspath(cam1_calibration_dir)
+        cam_1_calibration_folder = os.path.join(script_dir, "../../config/calibration/" + config["calibration_folders"][0])  # Relative path
+        cam_1_calibration_folder = os.path.abspath(cam_1_calibration_folder)
         
-        logger.info("Calibrating left camera")
-        mtx_left, dst_left = calibrate_camera(cam1_calibration_dir)
+        logger.info("Calibrating camera 1")
+        mtx_1, dst_1 = calibrate_camera(cam_1_calibration_folder)
 
         if config["camera_port_2"] != -1:
             if len(config["calibration_folders"]) < 2:
-                logger.error("Could not calibrate right camera. Please check calibration folders are correctly supplied.")
-                return mtx_left, dst_left, mtx_right, dst_right
+                logger.error("Could not calibrate camera 2. Please check calibration folders are correctly supplied.")
+                return mtx_1, dst_1, mtx_2, dst_2
 
-            cam2_calibration_dir = os.path.join(script_dir, "../../config/calibration/" + config["calibration_folders"][1])
-            cam2_calibration_dir = os.path.abspath(cam2_calibration_dir)
-            logger.info("Calibrating right camera")
-            mtx_right, dst_right = calibrate_camera(cam2_calibration_dir)
+            cam_2_calibration_folder = os.path.join(script_dir, "../../config/calibration/" + config["calibration_folders"][1])
+            cam_2_calibration_folder = os.path.abspath(cam_2_calibration_folder)
+            logger.info("Calibrating camera 2")
+            mtx_2, dst_2 = calibrate_camera(cam_2_calibration_folder)
 
-    return mtx_left, dst_left, mtx_right, dst_right
+    return mtx_1, dst_1, mtx_2, dst_2
 
 
-def undistort_cameras(config, left_frame, right_frame, mtx_left, dst_left, mtx_right, dst_right):
+def undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2):
     """
     Undistorts the input frames using the camera calibration parameters.
 
     Args:
         config (dict): Configuration dictionary containing calibration settings.
-        left_frame (numpy.ndarray): The left image frame.
-        right_frame (numpy.ndarray): The right image frame.
-        mtx_left (numpy.ndarray): Camera matrix for the left camera.
-        dst_left (numpy.ndarray): Distortion coefficients for the left camera.
-        mtx_right (numpy.ndarray): Camera matrix for the right camera.
-        dst_right (numpy.ndarray): Distortion coefficients for the right camera.
+        frame_1 (numpy.ndarray): The frame from camera 1.
+        frame_2 (numpy.ndarray): The frame from camera 2.
+        mtx_1 (numpy.ndarray): Camera matrix for camera 1.
+        dst_1 (numpy.ndarray): Distortion coefficients for camera 1.
+        mtx_2 (numpy.ndarray): Camera matrix for camera 2.
+        dst_2 (numpy.ndarray): Distortion coefficients for camera 2.
 
     Returns:
-        tuple: The undistorted left and right frames.
+        tuple: The undistorted frames.
     """
     if config["calibrate_cameras"]:
-        if mtx_left is None or dst_left is None:
-            logger.error("Could not undistort left camera. (Calibration enabled but no folders supplied?)")
-            return left_frame, right_frame
+        if mtx_1 is None or dst_1 is None:
+            logger.error("Could not undistort camera 1. (Calibration enabled but no folders supplied?)")
+            return frame_1, frame_2
         
 
-        h_left,  w_left = left_frame.shape[:2]
-        newcameramtx_left, roi_left = cv.getOptimalNewCameraMatrix(mtx_left, dst_left, (w_left,h_left), 1, (w_left,h_left))
+        h_1,  w_1 = frame_1.shape[:2]
+        new_camera_mtx_1, roi_1 = cv.getOptimalNewCameraMatrix(mtx_1, dst_1, (w_1,h_1), 1, (w_1,h_1))
         # undistort
-        left_frame = cv.undistort(left_frame, mtx_left, dst_left, None, newcameramtx_left)
+        frame_1 = cv.undistort(frame_1, mtx_1, dst_1, None, new_camera_mtx_1)
         
         # crop the image
-        x, y, w, h = roi_left
-        left_frame = left_frame[y:y+h, x:x+w]
+        x, y, w, h = roi_1
+        frame_1 = frame_1[y:y+h, x:x+w]
 
-        if right_frame is not None:
-            if mtx_right is None or dst_right is None:
-                logger.error("Could not undistort right camera. (Calibration enabled but no folders supplied?)")
-                return left_frame, right_frame
+        if frame_2 is not None:
+            if mtx_2 is None or dst_2 is None:
+                logger.error("Could not undistort camera 2. (Calibration enabled but no folders supplied?)")
+                return frame_1, frame_2
 
-            h_right,  w_right = right_frame.shape[:2]
-            newcameramtx_right, roi_right = cv.getOptimalNewCameraMatrix(mtx_right, dst_right, (w_right, h_right), 1, (w_right, h_right))
+            h_2,  w_2 = frame_2.shape[:2]
+            new_camera_mtx_2, roi_2 = cv.getOptimalNewCameraMatrix(mtx_2, dst_2, (w_2, h_2), 1, (w_2, h_2))
             # undistort
-            right_frame = cv.undistort(right_frame, mtx_right, dst_right, None, newcameramtx_right)
+            frame_2 = cv.undistort(frame_2, mtx_2, dst_2, None, new_camera_mtx_2)
             
             # crop the image
-            x, y, w, h = roi_right
-            right_frame = right_frame[y:y+h, x:x+w]
+            x, y, w, h = roi_2
+            frame_2 = frame_2[y:y+h, x:x+w]
 
-    return left_frame, right_frame
+    return frame_1, frame_2
 
 
 # Select points for table corners
@@ -195,7 +195,7 @@ def save_table_points(table_pts_cam1, table_pts_cam2, file_path="config/table_po
     logger.info(f"Table points saved to {file_path}")
 
 
-def manage_point_selection(config, left_camera, right_camera, mtx_left, dst_left, mtx_right, dst_right):
+def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2):
     table_pts_cam1, table_pts_cam2 = load_table_points()
 
     if table_pts_cam1 is None or table_pts_cam2 is None:
@@ -208,17 +208,17 @@ def manage_point_selection(config, left_camera, right_camera, mtx_left, dst_left
         logger.info("Select the 4 points for Camera 1 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
         while len(table_pts_cam1) < 4 or len(table_pts_cam2) < 4:
             # Read frames
-            left_frame = left_camera.read()
-            right_frame = right_camera.read() if right_camera else None
+            frame_1 = camera_1.read()
+            frame_2 = camera_2.read() if camera_2 else None
 
             # Fix any distortion in the cameras
-            left_frame, right_frame = undistort_cameras(config, left_frame, right_frame, mtx_left, dst_left, mtx_right, dst_right)
+            frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
 
             # Display the frame with the selected points
             if selected_cam == 1:
-                display_frame = left_frame.copy()
+                display_frame = frame_1.copy()
             else:
-                display_frame = right_frame.copy()
+                display_frame = frame_2.copy()
 
             for pt in (table_pts_cam1 if selected_cam == 1 else table_pts_cam2):
                 cv.circle(display_frame, pt, 5, (0, 0, 255), -1)

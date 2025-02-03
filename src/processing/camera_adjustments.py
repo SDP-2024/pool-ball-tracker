@@ -31,25 +31,25 @@ def compute_homography(corners, output_size):
 
 
 
-def warp_and_stitch(left_frame, right_frame, left_homography, right_homography, output_size):
+def warp_and_stitch(frame_1, frame_2, homography_1, homography_2, output_size):
     """
     Warps two frames using their respective homographies and stitches them together.
 
     Args:
-        left_frame (np.ndarray): The left image/frame to be warped.
-        right_frame (np.ndarray): The right image/frame to be warped.
-        left_homography (np.ndarray): The 3x3 homography matrix for the left frame.
-        right_homography (np.ndarray): The 3x3 homography matrix for the right frame.
+        frame_1 (np.ndarray): The image/frame from camera 1 to be warped.
+        frame_2 (np.ndarray): The image/frame from camera 2 to be warped.
+        homography_1 (np.ndarray): The 3x3 homography matrix for frame 1.
+        homography_2 (np.ndarray): The 3x3 homography matrix for frame 2.
         output_size (tuple): The size of the output stitched image as (width, height).
 
     Returns:
         np.ndarray: The stitched image created by blending the two warped frames.
     """
     # Warp both frames
-    left_warped = cv.warpPerspective(left_frame, left_homography, output_size)
-    right_warped = cv.warpPerspective(right_frame, right_homography, output_size)
+    warped_1 = cv.warpPerspective(frame_1, homography_1, output_size)
+    warped_2 = cv.warpPerspective(frame_2, homography_2, output_size)
 
     # Blend the two images
-    stitched = cv.addWeighted(left_warped, 0.5, right_warped, 0.5, 0)
+    stitched = cv.addWeighted(warped_1, 0.5, warped_2, 0.5, 0)
 
     return stitched
