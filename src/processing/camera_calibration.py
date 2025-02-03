@@ -3,6 +3,7 @@ import cv2 as cv
 import numpy as np
 import os
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -144,3 +145,88 @@ def undistort_cameras(config, left_frame, right_frame, mtx_left, dst_left, mtx_r
             right_frame = right_frame[y:y+h, x:x+w]
 
     return left_frame, right_frame
+
+
+# Select points for table corners
+def select_points(event, x, y, flags, param):
+    global table_pts_cam1, table_pts_cam2, selected_cam
+
+    if event == cv.EVENT_LBUTTONDOWN:
+        if selected_cam == 1:
+            table_pts_cam1.append((x, y))
+        else:
+            table_pts_cam2.append((x, y))
+
+        print(f"Point selected: {(x, y)} for Camera {selected_cam}")
+
+        if len(table_pts_cam1) == 4 and selected_cam == 1:
+            print("Switching to Camera 2. Select 4 points.")
+            selected_cam = 2
+        elif len(table_pts_cam2) == 4:
+            print("All points selected!")
+
+
+# Load previously saved points
+def load_table_points(file_path="config/table_points.json"):
+    try:
+        with open(file_path, "r") as f:
+            data = json.load(f)
+        table_pts_cam1 = np.array(data["table_pts_cam1"], dtype=np.float32)
+        table_pts_cam2 = np.array(data["table_pts_cam2"], dtype=np.float32)
+        return table_pts_cam1, table_pts_cam2
+    except FileNotFoundError:
+        logger.warning(f"{file_path} not found. Points need to be selected manually.")
+        return None, None
+    
+
+
+# Store selected points
+def save_table_points(table_pts_cam1, table_pts_cam2, file_path="config/table_points.json"):
+    # Ensure points are numpy arrays
+    table_pts_cam1 = np.array(table_pts_cam1, dtype=np.float32)
+    table_pts_cam2 = np.array(table_pts_cam2, dtype=np.float32)
+
+    data = {
+        "table_pts_cam1": table_pts_cam1.tolist(),
+        "table_pts_cam2": table_pts_cam2.tolist()
+    }
+    with open(file_path, "w") as f:
+        json.dump(data, f)
+    logger.info(f"Table points saved to {file_path}")
+
+
+def manage_point_selection(config, left_camera, right_camera, mtx_left, dst_left, mtx_right, dst_right):
+    table_pts_cam1, table_pts_cam2 = load_table_points()
+
+    if table_pts_cam1 is None or table_pts_cam2 is None:
+        selected_cam = 1  # Start with camera 1 for selection
+        table_pts_cam1, table_pts_cam2 = [], []
+
+        # Set mouse callback to select points
+        cv.setMouseCallback("Stitched Image (Cropped)", select_points)
+
+        logger.info("Select the 4 points for Camera 1 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
+        while len(table_pts_cam1) < 4 or len(table_pts_cam2) < 4:
+            # Read frames
+            left_frame = left_camera.read()
+            right_frame = right_camera.read() if right_camera else None
+
+            # Fix any distortion in the cameras
+            left_frame, right_frame = undistort_cameras(config, left_frame, right_frame, mtx_left, dst_left, mtx_right, dst_right)
+
+            # Display the frame with the selected points
+            if selected_cam == 1:
+                display_frame = left_frame.copy()
+            else:
+                display_frame = right_frame.copy()
+
+            for pt in (table_pts_cam1 if selected_cam == 1 else table_pts_cam2):
+                cv.circle(display_frame, pt, 5, (0, 0, 255), -1)
+
+            cv.imshow("Stitched Image (Cropped)", display_frame)
+            if cv.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to quit selection
+                break
+
+        save_table_points(table_pts_cam1, table_pts_cam2)
+        return table_pts_cam1, table_pts_cam2
+    return table_pts_cam1, table_pts_cam2

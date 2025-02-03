@@ -11,6 +11,7 @@ import time
 import logging
 from processing.camera_calibration import *
 from processing.stitcher import Stitcher
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ logging.basicConfig(
 )
 
 
-
+# Main function
 def main():
     """
     Main function for initializing and running the ball and table detection system.
@@ -56,8 +57,8 @@ def main():
 
         # Check if second camera enabled
         if config["camera_port_2"] != -1:
-                right_camera = VideoStream(config["camera_port_2"]).start()
-                logger.info("Right camera started.")
+            right_camera = VideoStream(config["camera_port_2"]).start()
+            logger.info("Right camera started.")
         else:
             logger.warning("Right camera disabled. Continuing with left camera only.")
             right_camera = None
@@ -72,7 +73,10 @@ def main():
     # Create a named window with the WINDOW_NORMAL flag to allow resizing
     cv.namedWindow("Stitched Image (Cropped)", cv.WINDOW_NORMAL)
 
-
+    if right_camera is not None:
+        table_pts_cam1, table_pts_cam2 = manage_point_selection(config, left_camera, right_camera, mtx_left, dst_left, mtx_right, dst_right)
+    
+    # Process the frames and perform stitching
     while True:
         # Read frames
         left_frame = left_camera.read()
@@ -81,21 +85,28 @@ def main():
         # Fix any distortion in the cameras
         left_frame, right_frame = undistort_cameras(config, left_frame, right_frame, mtx_left, dst_left, mtx_right, dst_right)
 
-        # Check if frames are valid
         if left_frame is None:
             logger.error("Left camera frame is invalid.")
             continue 
-        
 
         # Handle frame stitching if required
         if right_frame is None:
             stitched_frame = left_frame  # Fallback to left frame
         else:
-            stitched_frame = stitcher.stitch_frames(left_frame, right_frame)
+            # Compute homography matrices
+            output_size = (800, 400)
+            table_rect = np.float32([[0, 0], [output_size[0], 0], [0, output_size[1]], [output_size[0], output_size[1]]])
 
-            # Crop the stitched frame to the middle area
-            if stitched_frame is not None:
-                stitched_frame = crop_to_middle(stitched_frame, crop_fraction=0.1)
+            H1 = cv.getPerspectiveTransform(table_pts_cam1, table_rect)
+            H2 = cv.getPerspectiveTransform(table_pts_cam2, table_rect)
+
+            top_down_view1 = cv.warpPerspective(left_frame, H1, output_size)
+            top_down_view2 = cv.warpPerspective(right_frame, H2, output_size)
+
+            top_down_view1 = cv.rotate(top_down_view1, cv.ROTATE_180)
+
+            # Stack frames vertically
+            stitched_frame = np.vstack((top_down_view1, top_down_view2))
 
         # Detect and draw balls to frame
         detected_balls = ball_detector.detect(stitched_frame)
@@ -104,7 +115,6 @@ def main():
         # Detect table and draw to frame
         table = table_detector.detect(stitched_frame)
         table_detector.draw_edges(stitched_frame, table)
-
 
         # Display frames
         cv.imshow("Left camera", left_frame)
@@ -121,7 +131,6 @@ def main():
     if right_camera is not None:
         right_camera.stop()
     cv.destroyAllWindows()
-
 
 
 def parse_args():
@@ -141,7 +150,7 @@ def parse_args():
 
     parser.add_argument(
         "--create-profile",
-        type=str,
+        type=str, 
         help="Create a new profile with the specified name."
     )
     args = parser.parse_args()
