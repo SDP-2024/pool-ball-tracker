@@ -2,11 +2,10 @@
 
 ## **📌 Overview**
 
-This project performs **pool ball and table detection** with **real-time stereo video stitching** using OpenCV. It supports camera calibration, image undistortion, and real-time processing of frames from two cameras.
+This project performs real-time **pool ball and table detection** using OpenCV. It supports camera calibration, image undistortion, and real-time processing of frames from two cameras.
 
 ## **🚀 Features**
 
-- **Stereo Image Stitching**: Merges frames from camera 1 and camera 2 into a seamless panoramic image.
 - **Camera Calibration & Undistortion**: Uses pre-calibrated parameters to correct lens distortions.
 - **Ball Detection**: Detects and highlights balls in the stitched image, identifying their colors.
 - **Table Detection**: Detects a pool table and highlights the perimeter.
@@ -42,9 +41,9 @@ python src/main.py
 
 Modify `config.yaml` to adjust settings such as:
 
-- Frame stitching frequency
 - Camera ports
 - Color profile
+- Size parameters
 
 **Important settings**
 
@@ -53,7 +52,7 @@ Modify `config.yaml` to adjust settings such as:
 - `calibrate_cameras` Default to `false`, if setting to `true` then camera calibration photos must be provided.
 - `calibration_folders` Provide the folder name of the calibration photos. Must be placed within `/config/calibration/`.
   - Example: `calibration_folders : ["/folder_cam1", "/folder_cam2"]`
-- `detection: `profile` Name of the color profile you wish to use.
+- `profile` Name of the color profile you wish to use.
 
 Optionally create a new configuration profile with:
 
