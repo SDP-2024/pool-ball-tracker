@@ -1,8 +1,8 @@
 import cv2 as cv
 
-from detection.color_detection import ColorDetector
-from detection.shape_detection import ShapeDetector
-from detection.ball_classification import Classifier
+from .color_detection import ColorDetector
+from .shape_detection import ShapeDetector
+from .ball_classification import Classifier
 
 
 class BallDetector:

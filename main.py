@@ -1,14 +1,13 @@
 import cv2 as cv
 import argparse
-from config_manager import load_config, create_profile
-from detection.ball_detector import BallDetector
-from detection.table_detector import TableDetector
-from processing.frame_processing import crop_to_middle
-from processing.camera_adjustments import *
+from config.config_manager import load_config, create_profile
+from src.detection.ball_detector import BallDetector
+from src.detection.table_detector import TableDetector
+from src.processing.camera_adjustments import *
 from imutils.video import VideoStream
 import time
 import logging
-from processing.camera_calibration import *
+from src.processing.camera_calibration import *
 import numpy as np
 
 logger = logging.getLogger(__name__)

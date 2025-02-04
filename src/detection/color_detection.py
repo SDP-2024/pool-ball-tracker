@@ -1,7 +1,7 @@
 import yaml
 import cv2 as cv
 import numpy as np
-from utils import get_limits
+from src.utils import get_limits
 
 class ColorDetector:
     """

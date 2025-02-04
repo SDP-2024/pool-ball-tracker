@@ -1,6 +1,6 @@
 import cv2 as cv
 import numpy as np
-from processing.frame_processing import frame_to_gs
+from src.processing.frame_processing import frame_to_gs
 
 
 class TableDetector:
