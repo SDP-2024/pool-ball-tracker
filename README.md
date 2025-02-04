@@ -32,7 +32,7 @@ pip install -r requirements.txt
 To start the program, simply run:
 
 ```bash
-python src/main.py
+python main.py
 ```
 
 - This will create a default configuration file and profile.
@@ -57,7 +57,7 @@ Modify `config.yaml` to adjust settings such as:
 Optionally create a new configuration profile with:
 
 ```bash
-python src/main.py --create-profile [name]
+python main.py --create-profile [name]
 ```
 
 **Modifying colors**
@@ -99,7 +99,7 @@ Color profiles can also be created to allow you to save common values under diff
 To test with a different config profile:
 
 ```bash
-python src/main.py --profile [name]
+python main.py --profile [name]
 ```
 
 ---
