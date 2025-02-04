@@ -53,7 +53,7 @@ Modify `config.yaml` to adjust settings such as:
 - `calibrate_cameras` Default to `false`, if setting to `true` then camera calibration photos must be provided.
 - `calibration_folders` Provide the folder name of the calibration photos. Must be placed within `/config/calibration/`.
   - Example: `calibration_folders : ["/folder_cam1", "/folder_cam2"]`
-- `detection: profile` Name of the color profile you wish to use.
+- `detection: `profile` Name of the color profile you wish to use.
 
 Optionally create a new configuration profile with:
 
