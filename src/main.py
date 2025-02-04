@@ -6,11 +6,9 @@ from detection.table_detector import TableDetector
 from processing.frame_processing import crop_to_middle
 from processing.camera_adjustments import *
 from imutils.video import VideoStream
-from processing.stitcher import Stitcher
 import time
 import logging
 from processing.camera_calibration import *
-from processing.stitcher import Stitcher
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -44,8 +42,6 @@ def main():
 
     # Calibrate cameras
     mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
-
-    stitcher = Stitcher(config)
 
     camera_1, camera_2 = None, None
 

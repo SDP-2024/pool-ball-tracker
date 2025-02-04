@@ -147,48 +147,38 @@ def undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2):
     return frame_1, frame_2
 
 
-# Select points for table corners
 def select_points(event, x, y, flags, param):
-    global table_pts_cam1, table_pts_cam2, selected_cam
+    table_pts_cam1, table_pts_cam2, selected_cam = param
 
     if event == cv.EVENT_LBUTTONDOWN:
-        if selected_cam == 1:
+        if selected_cam[0] == 1:
             table_pts_cam1.append((x, y))
         else:
             table_pts_cam2.append((x, y))
 
-        print(f"Point selected: {(x, y)} for Camera {selected_cam}")
+        print(f"Point selected: {(x, y)} for Camera {selected_cam[0]}")
 
-        if len(table_pts_cam1) == 4 and selected_cam == 1:
+        if len(table_pts_cam1) == 4 and selected_cam[0] == 1:
             print("Switching to Camera 2. Select 4 points.")
-            selected_cam = 2
+            selected_cam[0] = 2
         elif len(table_pts_cam2) == 4:
             print("All points selected!")
 
 
-# Load previously saved points
 def load_table_points(file_path="config/table_points.json"):
     try:
         with open(file_path, "r") as f:
             data = json.load(f)
-        table_pts_cam1 = np.array(data["table_pts_cam1"], dtype=np.float32)
-        table_pts_cam2 = np.array(data["table_pts_cam2"], dtype=np.float32)
-        return table_pts_cam1, table_pts_cam2
+        return np.array(data["table_pts_cam1"], dtype=np.float32), np.array(data["table_pts_cam2"], dtype=np.float32)
     except FileNotFoundError:
         logger.warning(f"{file_path} not found. Points need to be selected manually.")
         return None, None
-    
 
 
-# Store selected points
 def save_table_points(table_pts_cam1, table_pts_cam2, file_path="config/table_points.json"):
-    # Ensure points are numpy arrays
-    table_pts_cam1 = np.array(table_pts_cam1, dtype=np.float32)
-    table_pts_cam2 = np.array(table_pts_cam2, dtype=np.float32)
-
     data = {
-        "table_pts_cam1": table_pts_cam1.tolist(),
-        "table_pts_cam2": table_pts_cam2.tolist()
+        "table_pts_cam1": np.array(table_pts_cam1, dtype=np.float32).tolist(),
+        "table_pts_cam2": np.array(table_pts_cam2, dtype=np.float32).tolist()
     }
     with open(file_path, "w") as f:
         json.dump(data, f)
@@ -199,34 +189,29 @@ def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_
     table_pts_cam1, table_pts_cam2 = load_table_points()
 
     if table_pts_cam1 is None or table_pts_cam2 is None:
-        selected_cam = 1  # Start with camera 1 for selection
         table_pts_cam1, table_pts_cam2 = [], []
+        selected_cam = [1]
 
-        # Set mouse callback to select points
-        cv.setMouseCallback("Stitched Image (Cropped)", select_points)
+        cv.namedWindow("Point Selection")
+        cv.setMouseCallback("Point Selection", select_points, param=(table_pts_cam1, table_pts_cam2, selected_cam))
 
-        logger.info("Select the 4 points for Camera 1 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
+        logger.info("Select 4 points for Camera 1 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
+
         while len(table_pts_cam1) < 4 or len(table_pts_cam2) < 4:
-            # Read frames
             frame_1 = camera_1.read()
             frame_2 = camera_2.read() if camera_2 else None
 
-            # Fix any distortion in the cameras
             frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
 
-            # Display the frame with the selected points
-            if selected_cam == 1:
-                display_frame = frame_1.copy()
-            else:
-                display_frame = frame_2.copy()
+            display_frame = frame_1.copy() if selected_cam[0] == 1 else frame_2.copy()
 
-            for pt in (table_pts_cam1 if selected_cam == 1 else table_pts_cam2):
+            for pt in (table_pts_cam1 if selected_cam[0] == 1 else table_pts_cam2):
                 cv.circle(display_frame, pt, 5, (0, 0, 255), -1)
 
-            cv.imshow("Stitched Image (Cropped)", display_frame)
-            if cv.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to quit selection
+            cv.imshow("Point Selection", display_frame)
+            if cv.waitKey(1) & 0xFF == ord('q'):
                 break
 
         save_table_points(table_pts_cam1, table_pts_cam2)
-        return table_pts_cam1, table_pts_cam2
-    return table_pts_cam1, table_pts_cam2
+
+    return np.array(table_pts_cam1, dtype=np.float32), np.array(table_pts_cam2, dtype=np.float32)
