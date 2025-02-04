@@ -24,6 +24,7 @@ class BallDetector:
         self.color_detector = ColorDetector(config)
         self.shape_detector = ShapeDetector(config)
         self.ball_classifier = Classifier(config)
+        self.config = config
 
     def detect(self, frame):
         """
@@ -96,7 +97,7 @@ class BallDetector:
             text_position = (x - 20, y - radius - 10)
 
              # Draw a circle around the detected ball
-            cv.circle(stitched_frame, (x, y), radius, (0, 255, 255), 2)
+            cv.circle(stitched_frame, (x, y), radius, self.config["circle_outline_color"], self.config["circle_thickness"])
 
             # Put text with detected color above the ball
-            cv.putText(stitched_frame, color_name, text_position, cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 2)
+            cv.putText(stitched_frame, color_name, text_position, cv.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"])

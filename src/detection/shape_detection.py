@@ -18,7 +18,6 @@ class ShapeDetector:
                            including parameters like `min_area` for shape detection.
         """
         self.config = config
-        self.tracking = self.config.get("tracking", {})
 
     def detect(self, mask):
         """
@@ -48,7 +47,7 @@ class ShapeDetector:
             area = cv.contourArea(contour)
 
             # If contour is greater than threshold area
-            if area > self.tracking["min_area"]:
+            if area > self.config["min_area"]:
                 perimeter = cv.arcLength(contour, True)
 
                 # Check if circle shape

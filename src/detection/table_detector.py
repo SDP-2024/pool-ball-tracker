@@ -19,7 +19,7 @@ class TableDetector:
             config (dict): The configuration dictionary containing detector settings.
                            The dictionary must include a "detector" key with relevant parameters.
         """
-        self.config = config.get("detector", {})
+        self.config = config
         self.table_area = self.config["table_area"]
         self.previous_corners = None
         self.alpha = 0.5  # Smoothing weight (closer to 1 = more stable, less responsive)

@@ -18,7 +18,7 @@ class ColorDetector:
             config (dict): The configuration dictionary containing detector settings, 
                            including the profile name and color thresholds.
         """
-        self.config = config.get("detector", {})
+        self.config = config
         self.profile = self.config["profile"]
         self.hsv_thresholds = self._load_color_ranges(filepath="config/colors.yaml", profile=self.profile)
 
