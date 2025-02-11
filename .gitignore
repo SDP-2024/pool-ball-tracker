@@ -200,3 +200,4 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode
 config/table_points.json
+config/hsv_adjuster.py
