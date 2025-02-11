@@ -38,8 +38,23 @@ class ColorDetector:
         """
         lower_hsv, upper_hsv = get_limits(color, self.hsv_thresholds)
         mask = cv.inRange(frame, lower_hsv, upper_hsv)
-        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, np.ones((5, 5), np.uint8))
-        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+        if color == "red":
+            yellow_lower, yellow_upper = get_limits("yellow", self.hsv_thresholds)
+            yellow_mask = cv.inRange(frame, yellow_lower, yellow_upper)
+            red_mask = cv.inRange(frame, lower_hsv, upper_hsv)
+            
+            # Invert the yellow mask to create a mask that keeps everything except yellow
+            yellow_mask_inv = cv.bitwise_not(yellow_mask)
+            
+            # Apply the inverted yellow mask to the red mask to remove yellow regions from the red mask
+            mask = cv.bitwise_and(red_mask, yellow_mask_inv)
+
+        if color == "black":
+            mask = cv.morphologyEx(mask, cv.MORPH_OPEN, np.ones((1,1), np.uint8))
+            mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, np.ones((1,1), np.uint8))
+        else:
+            mask = cv.morphologyEx(mask, cv.MORPH_OPEN, np.ones((3, 3), np.uint8))
+            mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, np.ones((3, 3), np.uint8))
         return mask
 
 
