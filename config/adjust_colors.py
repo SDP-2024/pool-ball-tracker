@@ -248,11 +248,15 @@ def capture_video():
     Captures video frames from the webcam and stores them in a queue for processing.
     Runs in a separate thread to ensure continuous video capture without blocking the GUI.
     """
-    cap = cv2.VideoCapture(1)
+    print("Trying to capture video")
+    cap = cv2.VideoCapture(2)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    print("Capturing video")
     while True:
         ret, frame = cap.read()
+        #frame = equalize_frame(frame)
+
         if ret:
             if not frame_queue.full():
                 frame_queue.put(frame)
@@ -260,6 +264,24 @@ def capture_video():
             break
     cap.release()
 
+
+def equalize_frame(frame):
+    # Convert from BGR to YCrCb color space
+    ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
+    
+    # Split the channels
+    y, cr, cb = cv2.split(ycrcb)
+    
+    # Equalize the histogram of the Y channel (luminance)
+    y_eq = cv2.equalizeHist(y)
+    
+    # Merge the channels back
+    ycrcb_eq = cv2.merge((y_eq, cr, cb))
+    
+    # Convert back to BGR color space
+    frame_eq = cv2.cvtColor(ycrcb_eq, cv2.COLOR_YCrCb2BGR)
+    
+    return frame_eq
 # Create the GUI
 root = tk.Tk()
 root.title("HSV Profiles Manager with Webcam")
