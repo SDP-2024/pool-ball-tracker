@@ -39,6 +39,7 @@ class ShapeDetector:
         """
 
         # Find contours in the current mask
+        mask = cv.GaussianBlur(mask, (3,3), 1)
         contours, _ = cv.findContours(mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         detected_shapes = []
 
