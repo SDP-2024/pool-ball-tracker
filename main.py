@@ -1,6 +1,8 @@
+from multiprocessing import Queue
 import cv2 as cv
 import argparse
 from config.config_manager import load_config, create_profile
+from src.processing.frame_processing import get_top_down_view
 from src.detection.ball_detector import BallDetector
 from src.detection.table_detector import TableDetector
 from src.processing.camera_adjustments import *
@@ -9,6 +11,7 @@ import time
 import logging
 from src.processing.camera_calibration import *
 import numpy as np
+from src.tracking.coordinate_system import Coordinate_System
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +71,18 @@ def main():
     # Create a named window with the WINDOW_NORMAL flag to allow resizing
     cv.namedWindow("Stitched Image (Cropped)", cv.WINDOW_NORMAL)
 
+    # Read frames
+    frame_1 = camera_1.read()
+    frame_2 = camera_2.read() if camera_2 else None
+
+    # Set up coordinate system for the cropped frames
     if camera_2 is not None:
         table_pts_cam1, table_pts_cam2 = manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2)
-    
+        stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
+        coordinate_system = Coordinate_System(config, stitched_frame.shape[0], stitched_frame.shape[1])
+    else:
+        coordinate_system = Coordinate_System(config, frame_1.shape[0], frame_1.shape[1])
+
     # Process the frames and perform stitching
     while True:
         # Read frames
@@ -88,24 +100,17 @@ def main():
         if frame_2 is None:
             stitched_frame = frame_1  # Fallback to frame 1
         else:
-            # Compute homography matrices
-            output_size = (800, 400)
-            table_rect = np.float32([[0, 0], [output_size[0], 0], [0, output_size[1]], [output_size[0], output_size[1]]])
-
-            H1 = cv.getPerspectiveTransform(table_pts_cam1, table_rect)
-            H2 = cv.getPerspectiveTransform(table_pts_cam2, table_rect)
-
-            top_down_view1 = cv.warpPerspective(frame_1, H1, output_size)
-            top_down_view2 = cv.warpPerspective(frame_2, H2, output_size)
-
-            top_down_view1 = cv.rotate(top_down_view1, cv.ROTATE_180)
-
-            # Stack frames vertically
-            stitched_frame = np.vstack((top_down_view1, top_down_view2))
-
+            stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
+        drawing_frame = stitched_frame.copy()
         # Detect and draw balls to frame
         detected_balls = ball_detector.detect(stitched_frame)
-        ball_detector.draw_detected_balls(stitched_frame, detected_balls)
+        #queue.put(detected_balls)
+        ball_detector.draw_detected_balls(drawing_frame, detected_balls)
+        # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
+        stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls)
+        if stepper_command is not None:
+            logger.info(f"Steps x: {stepper_command[0]}, Steps y: {stepper_command[1]}")
+
 
         # Detect table and draw to frame
         table = table_detector.detect(stitched_frame)
@@ -116,6 +121,7 @@ def main():
         if frame_2 is not None:
             cv.imshow("Camera 2", frame_2)
         cv.imshow("Stitched Image (Cropped)", stitched_frame)
+        cv.imshow("Drawing frame", drawing_frame)
 
         # Exit if 'q' pressed
         if cv.waitKey(1) & 0xFF == ord('q'):
