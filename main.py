@@ -1,4 +1,3 @@
-from multiprocessing import Queue
 import cv2 as cv
 import argparse
 from config.config_manager import load_config, create_profile
@@ -10,8 +9,12 @@ from imutils.video import VideoStream
 import time
 import logging
 from src.processing.camera_calibration import *
-import numpy as np
 from src.tracking.coordinate_system import Coordinate_System
+from flask import Flask
+from src.networking.network import Network
+import threading
+
+app = Flask(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,10 @@ def main():
 
     ball_detector = BallDetector(config)
     table_detector = TableDetector(config)
+    if config["use_networking"]:
+        network = Network(config, app)
+        server_thread = threading.Thread(target=network.setup)
+        server_thread.start()
 
     # Calibrate cameras
     mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
@@ -101,6 +108,7 @@ def main():
             stitched_frame = frame_1  # Fallback to frame 1
         else:
             stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
+
         drawing_frame = stitched_frame.copy()
         # Detect and draw balls to frame
         detected_balls = ball_detector.detect(stitched_frame)
@@ -108,6 +116,9 @@ def main():
         ball_detector.draw_detected_balls(drawing_frame, detected_balls)
         # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
         stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls)
+        if config["use_networking"]:
+            if network.poll_ready():
+                network.send(stepper_command)
         if stepper_command is not None:
             logger.info(f"Steps x: {stepper_command[0]}, Steps y: {stepper_command[1]}")
 
