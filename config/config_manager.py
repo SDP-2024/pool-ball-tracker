@@ -64,6 +64,12 @@ schema = {
             "minlength": 3,
             "maxlength": 3,
         },
+        "use_networking" : {"type": "boolean"},
+        "esp_ip": {"type": "string", "min" : 0},
+        "update_endpoint": {"type": "string", "min" : 0},
+        "ready_endpoint" : {"type": "string", "min": 0},
+        "poll_interval" : {"type": "integer", "min": 0.01},
+        "port" : {"type": "integer", "min": 0},
     },
 }
 
@@ -198,6 +204,12 @@ def create_profile(path="../config", name="default"):
             "font_scale": 0.5,
             "font_thickness": 2,
             "tracking_line_color": [0, 0, 255],
+            "use_networking" : False,
+            "esp_ip" : "0.0.0.0",
+            "update_endpoint" : "update",
+            "ready_endpoint" : "poll_ready",
+            "poll_interval": 1,
+            "port" : 5000,
         }
     
     try:
