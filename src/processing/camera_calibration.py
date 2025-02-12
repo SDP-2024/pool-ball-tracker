@@ -156,13 +156,13 @@ def select_points(event, x, y, flags, param):
         else:
             table_pts_cam2.append((x, y))
 
-        print(f"Point selected: {(x, y)} for Camera {selected_cam[0]}")
+        logger.info(f"Point selected: {(x, y)} for Camera {selected_cam[0]}")
 
         if len(table_pts_cam1) == 4 and selected_cam[0] == 1:
-            print("Switching to Camera 2. Select 4 points.")
+            logger.info("Switching to Camera 2. Select 4 points.")
             selected_cam[0] = 2
         elif len(table_pts_cam2) == 4:
-            print("All points selected!")
+            logger.info("All points selected!")
 
 
 def load_table_points(file_path="config/table_points.json"):
