@@ -10,7 +10,7 @@ class Coordinate_System:
         self.width_mm_per_pixel = self.table_width_mm/self.table_width_pixels
         self.height_mm_per_pixel = self.table_height_mm/self.table_height_pixels
         self.stepper_degrees_per_step = self.config["stepper_degrees_per_step"]
-        self.pulley_diameter = self.config["pulley_diameter"]
+        self.pulley_diameter = self.config["pulley_diameter_mm"]
         self.steps_per_rev = 360.0/self.stepper_degrees_per_step
         self.linear_distance_per_step = (np.pi * self.pulley_diameter)/self.steps_per_rev
 
