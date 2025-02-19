@@ -3,8 +3,6 @@ import argparse
 from config.config_manager import load_config, create_profile
 from src.detection.detection_model import DetectionModel
 from src.processing.frame_processing import get_top_down_view
-from src.detection.ball_detector import BallDetector
-from src.detection.table_detector import TableDetector
 from src.processing.camera_adjustments import *
 from imutils.video import VideoStream
 import time
@@ -52,25 +50,7 @@ def main():
     # Calibrate cameras
     mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
 
-    camera_1, camera_2 = None, None
-
-    # Attempt to load cameras
-    try:
-        logger.info("Starting cameras...")
-        camera_1 = VideoStream(config["camera_port_1"]).start()
-        logger.info("Camera 1 started.")
-
-        # Check if second camera enabled
-        if config["camera_port_2"] != -1:
-            camera_2 = VideoStream(config["camera_port_2"]).start()
-            logger.info("Camera 2 started.")
-        else:
-            logger.warning("Camera 2 disabled. Continuing with camera 1 only.")
-            camera_2 = None
-        
-    except Exception as e:
-        logger.error(f"Error starting camera: {e}")
-        return
+    camera_1, camera_2 = load_cameras(config)
 
     # Allow cameras to warm up
     time.sleep(2.0)
@@ -117,6 +97,8 @@ def main():
 
         # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
         stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls)
+
+        # If using networking, check if rails are ready and send the stepper command
         if config["use_networking"]:
             if network.poll_ready():
                 network.send(stepper_command)
@@ -168,6 +150,26 @@ def parse_args():
         return args.create_profile
 
     return args.profile
+
+def load_cameras(config):
+    # Attempt to load cameras
+    try:
+        logger.info("Starting cameras...")
+        camera_1 = VideoStream(config["camera_port_1"]).start()
+        logger.info("Camera 1 started.")
+
+        # Check if second camera enabled
+        if config["camera_port_2"] != -1:
+            camera_2 = VideoStream(config["camera_port_2"]).start()
+            logger.info("Camera 2 started.")
+        else:
+            logger.warning("Camera 2 disabled. Continuing with camera 1 only.")
+            camera_2 = None
+
+        return camera_1, camera_2
+    except Exception as e:
+        logger.error(f"Error starting camera: {e}")
+        return
 
 if __name__ == "__main__":
     main()
