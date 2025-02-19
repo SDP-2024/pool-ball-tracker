@@ -1,6 +1,7 @@
 import cv2 as cv
 import argparse
 from config.config_manager import load_config, create_profile
+from src.detection.detection_model import DetectionModel
 from src.processing.frame_processing import get_top_down_view
 from src.detection.ball_detector import BallDetector
 from src.detection.table_detector import TableDetector
@@ -41,9 +42,8 @@ def main():
     if config is None:
         logger.error("Error getting config file.")
         return
-
-    ball_detector = BallDetector(config)
-    table_detector = TableDetector(config)
+    
+    detection_model = DetectionModel(config)
     if config["use_networking"]:
         network = Network(config, app)
         server_thread = threading.Thread(target=network.setup)
@@ -110,10 +110,11 @@ def main():
             stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
 
         drawing_frame = stitched_frame.copy()
+
         # Detect and draw balls to frame
-        detected_balls = ball_detector.detect(stitched_frame)
-        #queue.put(detected_balls)
-        ball_detector.draw_detected_balls(drawing_frame, detected_balls)
+        detected_balls = detection_model.detect(stitched_frame)
+        detection_model.draw()(drawing_frame, detected_balls)
+
         # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
         stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls)
         if config["use_networking"]:
@@ -121,11 +122,6 @@ def main():
                 network.send(stepper_command)
         if stepper_command is not None:
             logger.info(f"Steps x: {stepper_command[0]}, Steps y: {stepper_command[1]}")
-
-
-        # Detect table and draw to frame
-        table = table_detector.detect(stitched_frame)
-        table_detector.draw_edges(stitched_frame, table)
 
         # Display frames
         cv.imshow("Camera 1", frame_1)
