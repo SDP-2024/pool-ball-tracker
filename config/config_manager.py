@@ -28,7 +28,7 @@ schema = {
         "table_width_mm" : {"type" : "integer", "min" : 1},
         "table_height_mm" : {"type" : "integer", "min" : 1},
         "stepper_degrees_per_step" : {"type": "float", "min": 0},
-        "pulley_diameter" : {"type" : "float", "min" : 0},
+        "pulley_diameter_mm" : {"type" : "float", "min" : 0},
         "circle_outline_color": {
             "type": "list",
             "schema": {"type": "integer", "min": 0, "max": 255},
@@ -193,7 +193,7 @@ def create_profile(path="../config", name="default"):
             "table_width_mm": 700,
             "table_height_mm": 1200,
             "stepper_degrees_per_step": 1.8,
-            "pulley_diameter": 20,
+            "pulley_diameter_mm": 20,
             "circle_outline_color": [0, 255, 255],
             "circle_thickness": 2,
             "radius_line_color": [255, 0, 0],
