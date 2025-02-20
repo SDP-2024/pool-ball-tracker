@@ -1,19 +1,17 @@
 import cv2
 import argparse
-from config.config_manager import load_config, create_profile
-from src.detection.detection_model import DetectionModel
-from src.processing.frame_processing import get_top_down_view
-from src.processing.camera_adjustments import *
-from imutils.video import VideoStream
 import time
 import logging
-from src.processing.camera_calibration import *
-from src.tracking.coordinate_system import Coordinate_System
-from flask import Flask
-from src.networking.network import Network
 import threading
+from flask import Flask
+from imutils.video import VideoStream
 
-from ultralytics import YOLO
+from config.config_manager import load_config, create_profile
+from src.processing.camera_calibration import *
+from src.processing.frame_processing import get_top_down_view
+from src.detection.detection_model import DetectionModel
+from src.tracking.coordinate_system import Coordinate_System
+from src.networking.network import Network
 
 app = Flask(__name__)
 
@@ -43,9 +41,6 @@ def main():
         logger.error("Error getting config file.")
         return
     
-    detection_model = DetectionModel(config)
-    if detection_model.model is None:
-        return
 
     if config["use_networking"]:
         network = Network(config, app)
@@ -63,6 +58,7 @@ def main():
     # Create a named window with the WINDOW_NORMAL flag to allow resizing
     cv2.namedWindow("Stitched Image (Cropped)", cv2.WINDOW_NORMAL)
 
+        
     # Read frames
     frame_1 = camera_1.read()
     frame_2 = camera_2.read() if camera_2 else None
@@ -75,6 +71,10 @@ def main():
     else:
         coordinate_system = Coordinate_System(config, frame_1.shape[0], frame_1.shape[1])
 
+    detection_model = DetectionModel(config)
+    if detection_model.model is None:
+        return
+    
     # Process the frames and perform stitching
     while True:
         # Read frames
