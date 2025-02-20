@@ -1,5 +1,5 @@
 import glob
-import cv2 as cv
+import cv2
 import numpy as np
 import os
 import logging
@@ -37,13 +37,13 @@ def calibrate_camera(path, chessboard_size=(8, 5)):
     gray = None
 
     for img_path in images:
-        img = cv.imread(img_path)  # Read the image
+        img = cv2.imread(img_path)  # Read the image
         if img is None:
             logger.error(f"Could not read {img_path}")
             continue  # Skip unreadable images
 
-        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)  # Convert to grayscale
-        ret, corners = cv.findChessboardCorners(gray, chessboard_size, None)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
+        ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
 
         if ret:
             img_points.append(corners)
@@ -54,7 +54,7 @@ def calibrate_camera(path, chessboard_size=(8, 5)):
         raise ValueError("No chessboard corners found in any image. Check the images or chessboard size.")
 
     # Calibrate the camera
-    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(obj_points, img_points, gray.shape[::-1], None, None)
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, gray.shape[::-1], None, None)
 
     return mtx, dist
 
@@ -122,9 +122,9 @@ def undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2):
         
 
         h_1,  w_1 = frame_1.shape[:2]
-        new_camera_mtx_1, roi_1 = cv.getOptimalNewCameraMatrix(mtx_1, dst_1, (w_1,h_1), 1, (w_1,h_1))
+        new_camera_mtx_1, roi_1 = cv2.getOptimalNewCameraMatrix(mtx_1, dst_1, (w_1,h_1), 1, (w_1,h_1))
         # undistort
-        frame_1 = cv.undistort(frame_1, mtx_1, dst_1, None, new_camera_mtx_1)
+        frame_1 = cv2.undistort(frame_1, mtx_1, dst_1, None, new_camera_mtx_1)
         
         # crop the image
         x, y, w, h = roi_1
@@ -136,9 +136,9 @@ def undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2):
                 return frame_1, frame_2
 
             h_2,  w_2 = frame_2.shape[:2]
-            new_camera_mtx_2, roi_2 = cv.getOptimalNewCameraMatrix(mtx_2, dst_2, (w_2, h_2), 1, (w_2, h_2))
+            new_camera_mtx_2, roi_2 = cv2.getOptimalNewCameraMatrix(mtx_2, dst_2, (w_2, h_2), 1, (w_2, h_2))
             # undistort
-            frame_2 = cv.undistort(frame_2, mtx_2, dst_2, None, new_camera_mtx_2)
+            frame_2 = cv2.undistort(frame_2, mtx_2, dst_2, None, new_camera_mtx_2)
             
             # crop the image
             x, y, w, h = roi_2
@@ -150,7 +150,7 @@ def undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2):
 def select_points(event, x, y, flags, param):
     table_pts_cam1, table_pts_cam2, selected_cam = param
 
-    if event == cv.EVENT_LBUTTONDOWN:
+    if event == cv2.EVENT_LBUTTONDOWN:
         if selected_cam[0] == 1:
             table_pts_cam1.append((x, y))
         else:
@@ -192,8 +192,8 @@ def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_
         table_pts_cam1, table_pts_cam2 = [], []
         selected_cam = [1]
 
-        cv.namedWindow("Point Selection")
-        cv.setMouseCallback("Point Selection", select_points, param=(table_pts_cam1, table_pts_cam2, selected_cam))
+        cv2.namedWindow("Point Selection")
+        cv2.setMouseCallback("Point Selection", select_points, param=(table_pts_cam1, table_pts_cam2, selected_cam))
 
         logger.info("Select 4 points for Camera 1 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
 
@@ -206,10 +206,10 @@ def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_
             display_frame = frame_1.copy() if selected_cam[0] == 1 else frame_2.copy()
 
             for pt in (table_pts_cam1 if selected_cam[0] == 1 else table_pts_cam2):
-                cv.circle(display_frame, pt, 5, (0, 0, 255), -1)
+                cv2.circle(display_frame, pt, 5, (0, 0, 255), -1)
 
-            cv.imshow("Point Selection", display_frame)
-            if cv.waitKey(1) & 0xFF == ord('q'):
+            cv2.imshow("Point Selection", display_frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
         save_table_points(table_pts_cam1, table_pts_cam2)

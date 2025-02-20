@@ -1,8 +1,8 @@
 import numpy as np
-import cv2 as cv
+import cv2
 
 import numpy as np
-import cv2 as cv
+import cv2
 
 def correct_perspective(frame, corners):
     """
@@ -53,10 +53,10 @@ def correct_perspective(frame, corners):
     ], dtype=np.float32)
 
     # Get the perspective transformation matrix
-    perspective_transform = cv.getPerspectiveTransform(corners, corners_corrected)
+    perspective_transform = cv2.getPerspectiveTransform(corners, corners_corrected)
 
     # Apply the perspective warp with the output dimensions being the full frame
-    corrected = cv.warpPerspective(frame, perspective_transform, (frame_w, frame_h))
+    corrected = cv2.warpPerspective(frame, perspective_transform, (frame_w, frame_h))
 
     return corrected
 
