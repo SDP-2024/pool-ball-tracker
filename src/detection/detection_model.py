@@ -1,10 +1,7 @@
-from calendar import c
 import cv2
 import logging
 import os
 from collections import defaultdict
-import numpy as np
-
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
