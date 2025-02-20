@@ -213,5 +213,5 @@ def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_
                 break
 
         save_table_points(table_pts_cam1, table_pts_cam2)
-
+        cv2.destroyWindow("Point Selection")
     return np.array(table_pts_cam1, dtype=np.float32), np.array(table_pts_cam2, dtype=np.float32)
