@@ -1,4 +1,4 @@
-import cv2 as cv
+import cv2
 import argparse
 from config.config_manager import load_config, create_profile
 from src.detection.detection_model import DetectionModel
@@ -12,6 +12,8 @@ from src.tracking.coordinate_system import Coordinate_System
 from flask import Flask
 from src.networking.network import Network
 import threading
+
+from ultralytics import YOLO
 
 app = Flask(__name__)
 
@@ -42,6 +44,9 @@ def main():
         return
     
     detection_model = DetectionModel(config)
+    if detection_model.model is None:
+        return
+
     if config["use_networking"]:
         network = Network(config, app)
         server_thread = threading.Thread(target=network.setup)
@@ -56,7 +61,7 @@ def main():
     time.sleep(2.0)
 
     # Create a named window with the WINDOW_NORMAL flag to allow resizing
-    cv.namedWindow("Stitched Image (Cropped)", cv.WINDOW_NORMAL)
+    cv2.namedWindow("Stitched Image (Cropped)", cv2.WINDOW_NORMAL)
 
     # Read frames
     frame_1 = camera_1.read()
@@ -92,11 +97,12 @@ def main():
         drawing_frame = stitched_frame.copy()
 
         # Detect and draw balls to frame
-        detected_balls = detection_model.detect(stitched_frame)
-        detection_model.draw()(drawing_frame, detected_balls)
-
+        detected_balls, labels = detection_model.detect(stitched_frame)
+        #detection_model.track(stitched_frame)
+        detection_model.draw(drawing_frame, detected_balls)
+        
         # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
-        stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls)
+        stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls, labels)
 
         # If using networking, check if rails are ready and send the stepper command
         if config["use_networking"]:
@@ -106,21 +112,20 @@ def main():
             logger.info(f"Steps x: {stepper_command[0]}, Steps y: {stepper_command[1]}")
 
         # Display frames
-        cv.imshow("Camera 1", frame_1)
+        cv2.imshow("Camera 1", frame_1)
         if frame_2 is not None:
-            cv.imshow("Camera 2", frame_2)
-        cv.imshow("Stitched Image (Cropped)", stitched_frame)
-        cv.imshow("Drawing frame", drawing_frame)
+            cv2.imshow("Camera 2", frame_2)
+        cv2.imshow("Stitched Image (Cropped)", stitched_frame)
 
         # Exit if 'q' pressed
-        if cv.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     # Cleanup
     camera_1.stop()
     if camera_2 is not None:
         camera_2.stop()
-    cv.destroyAllWindows()
+    cv2.destroyAllWindows()
 
 
 def parse_args():
