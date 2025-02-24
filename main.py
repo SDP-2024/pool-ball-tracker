@@ -6,6 +6,7 @@ import logging
 import threading
 from flask import Flask
 from imutils.video import VideoStream
+from random import randint
 
 from config.config_manager import load_config, create_profile
 from src.processing.camera_calibration import *
@@ -35,37 +36,38 @@ def main():
     Main function for initializing and running the ball and table detection system.
     """
 
-    # Load config
     args = parse_args()
+
+    # Load config
+    profile_name = args.create_profile if args.create_profile else args.profile
     if args.create_profile:
-        create_profile(name=args.create_profile)
-        config = load_config(args.create_profile)
-    else:
-        config = load_config(args.profile)
-
-
-
+        create_profile(name=profile_name)
+    config = load_config(profile_name)
+    
     if config is None:
         logger.error("Error getting config file.")
         return
-    
 
-    if config["use_networking"]:
+    if args.collect_ae_data:
+        reset_ae_data(config)
+    if args.set_points:
+        reset_points()
+    
+    # If networking is enabled, start the server
+    network = None
+    if config.get("use_networking", False):
         network = Network(config, app)
         server_thread = threading.Thread(target=network.setup)
         server_thread.start()
 
     # Calibrate cameras
     mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
-
     camera_1, camera_2 = load_cameras(config)
 
     # Allow cameras to warm up
     time.sleep(2.0)
-
     # Create a named window with the WINDOW_NORMAL flag to allow resizing
     cv2.namedWindow("Stitched Image (Cropped)", cv2.WINDOW_NORMAL)
-
         
     # Read frames
     frame_1 = camera_1.read()
@@ -80,12 +82,13 @@ def main():
         coordinate_system = Coordinate_System(config, frame_1.shape[0], frame_1.shape[1])
 
     detection_model = DetectionModel(config)
+    autoencoder = None
     if not args.collect_data:
         autoencoder = AutoEncoder(config)
-    if detection_model.model is None:
+    if detection_model.model is None: # Check if model loaded successfully
         return
     
-    # Process the frames and perform stitching
+    # Process the frames
     while True:
         # Read frames
         frame_1 = camera_1.read()
@@ -98,46 +101,29 @@ def main():
             logger.error("Camera 1 frame is invalid.")
             continue 
 
-        # Handle frame stitching if required
-        if frame_2 is None:
-            stitched_frame = frame_1  # Fallback to frame 1
-        else:
-            stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
+        # Get top-down view of the table
+        stitched_frame = frame_1 if frame_2 is None else get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
 
-        if args.collect_data:
-            #TODO: Expand dataset for more lighting conditions, add better augmentation
-            path = "./model/clean_images/"
-            if not os.path.exists(path):
-                os.makedirs(path)
-            img_count = 0
-            while img_count < 100:
-                if cv2.waitKey(1) & 0xFF == ord('t'):
-                    filename = f"{path}clean_{img_count}.jpg"
-                    cv2.imwrite(filename, stitched_frame)
-                    img_count += 1
-                    time.sleep(0.1)
-                    logger.info(f"Image {img_count} saved")
-                cv2.imshow("Stitched Image (Cropped)", stitched_frame)
+        if args.collect_data: # Collect data for autoencoder
+            capture_frame(config, stitched_frame)
 
         drawing_frame = stitched_frame.copy()
 
-        if not args.collect_data:
-            anomoly_detected = autoencoder.detect_anomaly(stitched_frame)
-            if anomoly_detected:
-                logger.warning("Anomaly detected!")
+        # Detect anomalies in the frame if required
+        if not args.collect_data or not args.no_anomaly:
+            if autoencoder.detect_anomaly(stitched_frame):
+                logger.warning("Object detected!")
 
         # Detect and draw balls to frame
         detected_balls, labels = detection_model.detect(stitched_frame)
-        #detection_model.track(stitched_frame)
         detection_model.draw(drawing_frame, detected_balls)
         
         # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
         stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls, labels)
 
         # If using networking, check if rails are ready and send the stepper command
-        if config["use_networking"]:
-            if network.poll_ready():
-                network.send(stepper_command)
+        if config["use_networking"] and network.poll_ready():
+            network.send(stepper_command)
         if stepper_command is not None:
             logger.info(f"Steps x: {stepper_command[0]}, Steps y: {stepper_command[1]}")
 
@@ -150,6 +136,7 @@ def main():
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
     # Cleanup
     camera_1.stop()
     if camera_2 is not None:
@@ -179,10 +166,18 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--collect-data",
-        type=bool,
-        default=False,
-        help="Collect data for training the anomaly detection model."
+        "--collect-ae-data",
+        action='store_true',
+    )
+
+    parser.add_argument(
+        "--set-points",
+        action='store_true',
+    )
+
+    parser.add_argument(
+        "--no-anomaly",
+        action='store_true',
     )
 
     return parser.parse_args()
@@ -206,6 +201,31 @@ def load_cameras(config):
     except Exception as e:
         logger.error(f"Error starting camera: {e}")
         return
+    
+
+def capture_frame(config, frame):
+    path = f"./{config["clean_images_path"]}"
+    if not os.path.exists(path):
+        os.makedirs(path)
+    
+    if cv2.waitKey(1) & 0xFF == ord('t'):
+        filename = f"{path}clean_{randint(0, 10000)}.jpg"
+        cv2.imwrite(filename, frame)
+        time.sleep(0.1)
+        logger.info(f"Image {randint(0, 10000)} saved")
+
+def reset_ae_data(config):
+    path = f"./{config["clean_images_path"]}"
+    if os.path.exists(path):
+        for file in os.listdir(path):
+            os.remove(path + file)
+        logger.info("Data reset.")
+
+def reset_points():
+    path = "./config/table_points.json"
+    if os.path.exists(path):
+        os.remove(path)
+        logger.info("Points reset.")
 
 if __name__ == "__main__":
     main()
