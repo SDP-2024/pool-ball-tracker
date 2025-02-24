@@ -38,10 +38,11 @@ schema = {
         "ready_endpoint" : {"type": "string", "min": 0},
         "poll_interval" : {"type": "integer", "min": 0.01},
         "port" : {"type": "integer", "min": 0},
-        "model_path" : {"type": "string", "min" : 0},
+        "detection_model_path" : {"type": "string", "min" : 0},
         "conf_threshold": {"type": "float", "min": 0, "max": 1.0},
         "clean_images_path": {"type": "string", "min" : 0},
         "anomaly_threshold": {"type": "float", "min": 0, "max": 1.0},
+        "autoencoder_model_path": {"type": "string", "min" : 0},
     },
 }
 
@@ -170,11 +171,11 @@ def create_profile(path="../config", name="default"):
             "ready_endpoint" : "poll_ready",
             "poll_interval": 1,
             "port" : 5000,
-            "model_path" : "/model",
+            "detection_model_path" : "/model",
             "conf_threshold": 0.5,
             "clean_images_path": "/clean_images",
             "anomaly_threshold": 0.01,
-
+            "autoencoder_model_path": "/model/autoencoder_model.keras",
         }
     
     try:
