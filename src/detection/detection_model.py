@@ -3,6 +3,7 @@ import logging
 import os
 from collections import defaultdict
 from ultralytics import YOLO
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,21 @@ class DetectionModel:
 
         cv2.putText(frame, f'Number of objects: {self.count}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0), 1) # Draw total number of detected objects
         cv2.imshow("Detection", frame)
+
+    def extract_bounding_boxes(self, frame, balls):
+        detected_balls = []
+        for ball in balls:
+            for box in ball.boxes.xyxy:
+                xmin, ymin, xmax, ymax = map(int, box)
+                detected_balls.append((xmin, ymin, xmax, ymax))
+
+        mask = np.zeros_like(frame[:, :, 0])
+        for (xmin, ymin, xmax, ymax) in detected_balls:
+            mask[ymin:ymax, xmin:xmax] = 255
+
+        table_only = cv2.inpaint(frame, mask, 3, cv2.INPAINT_TELEA)
+
+        return table_only # All regions to be checked for anomolies
 
 
             

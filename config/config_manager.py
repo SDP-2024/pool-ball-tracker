@@ -39,7 +39,9 @@ schema = {
         "poll_interval" : {"type": "integer", "min": 0.01},
         "port" : {"type": "integer", "min": 0},
         "model_path" : {"type": "string", "min" : 0},
-        "conf_threshold": {"type": "float", "min": 0, "max": 1.0}
+        "conf_threshold": {"type": "float", "min": 0, "max": 1.0},
+        "clean_images_path": {"type": "string", "min" : 0},
+        "anomaly_threshold": {"type": "float", "min": 0, "max": 1.0},
     },
 }
 
@@ -169,7 +171,10 @@ def create_profile(path="../config", name="default"):
             "poll_interval": 1,
             "port" : 5000,
             "model_path" : "/model",
-            "conf_threshold": 0.5
+            "conf_threshold": 0.5,
+            "clean_images_path": "/clean_images",
+            "anomaly_threshold": 0.01,
+
         }
     
     try:

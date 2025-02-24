@@ -1,3 +1,4 @@
+from warnings import filters
 import cv2
 import argparse
 import time
@@ -8,8 +9,9 @@ from imutils.video import VideoStream
 
 from config.config_manager import load_config, create_profile
 from src.processing.camera_calibration import *
-from src.processing.frame_processing import get_top_down_view
+from src.processing.frame_processing import *
 from src.detection.detection_model import DetectionModel
+from src.detection.autoencoder import AutoEncoder
 from src.tracking.coordinate_system import Coordinate_System
 from src.networking.network import Network
 
@@ -32,10 +34,16 @@ def main():
     """
     Main function for initializing and running the ball and table detection system.
     """
-    
+
     # Load config
-    profile = parse_args()
-    config = load_config(profile)
+    args = parse_args()
+    if args.create_profile:
+        create_profile(name=args.create_profile)
+        config = load_config(args.create_profile)
+    else:
+        config = load_config(args.profile)
+
+
 
     if config is None:
         logger.error("Error getting config file.")
@@ -72,6 +80,8 @@ def main():
         coordinate_system = Coordinate_System(config, frame_1.shape[0], frame_1.shape[1])
 
     detection_model = DetectionModel(config)
+    if not args.collect_data:
+        autoencoder = AutoEncoder(config)
     if detection_model.model is None:
         return
     
@@ -94,7 +104,27 @@ def main():
         else:
             stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
 
+        if args.collect_data:
+            #TODO: Expand dataset for more lighting conditions, add better augmentation
+            path = "./model/clean_images/"
+            if not os.path.exists(path):
+                os.makedirs(path)
+            img_count = 0
+            while img_count < 100:
+                if cv2.waitKey(1) & 0xFF == ord('t'):
+                    filename = f"{path}clean_{img_count}.jpg"
+                    cv2.imwrite(filename, stitched_frame)
+                    img_count += 1
+                    time.sleep(0.1)
+                    logger.info(f"Image {img_count} saved")
+                cv2.imshow("Stitched Image (Cropped)", stitched_frame)
+
         drawing_frame = stitched_frame.copy()
+
+        if not args.collect_data:
+            anomoly_detected = autoencoder.detect_anomaly(stitched_frame)
+            if anomoly_detected:
+                logger.warning("Anomaly detected!")
 
         # Detect and draw balls to frame
         detected_balls, labels = detection_model.detect(stitched_frame)
@@ -120,7 +150,6 @@ def main():
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
     # Cleanup
     camera_1.stop()
     if camera_2 is not None:
@@ -148,13 +177,15 @@ def parse_args():
         type=str, 
         help="Create a new profile with the specified name."
     )
-    args = parser.parse_args()
 
-    if args.create_profile:
-        create_profile(name=args.create_profile)
-        return args.create_profile
+    parser.add_argument(
+        "--collect-data",
+        type=bool,
+        default=False,
+        help="Collect data for training the anomaly detection model."
+    )
 
-    return args.profile
+    return parser.parse_args()
 
 def load_cameras(config):
     # Attempt to load cameras
