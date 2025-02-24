@@ -16,7 +16,7 @@ class AutoEncoder:
         self.autoencoder = self.build_autoencoder()
 
     def build_autoencoder(self):
-        model_path = "model/autoencoder_model.keras"
+        model_path = self.config.get("autoencoder_model_path", "model/autoencoder_model.keras")
 
         if os.path.exists(model_path):
             logger.info("Loading existing autoencoder model...")
@@ -41,7 +41,8 @@ class AutoEncoder:
         autoencoder.summary()
 
         # Load images only if model is being trained
-        clean_images = self.load_images(self.config["clean_images_path"])
+        clean_images_path = self.config.get("clean_images_path", "")
+        clean_images = self.load_images(clean_images_path)
 
         if len(clean_images) == 0:
             logger.warning("No training images found. Check the dataset path!")
@@ -49,7 +50,7 @@ class AutoEncoder:
 
         # Train the model if it doesn't exist
         logger.info("Training new model...")
-        autoencoder.fit(clean_images, clean_images, epochs=50, batch_size=32)
+        autoencoder.fit(clean_images, clean_images, epochs=self.config.get("epochs", 50), batch_size=self.config.get("batch_size", 32))
         autoencoder.save(model_path)  # Save after training
         logger.info("Model trained and saved!")
 
@@ -60,12 +61,19 @@ class AutoEncoder:
         """Load and preprocess images from a given folder."""
         images = []
         for filename in os.listdir(folder_path):
-            if filename.endswith(".jpg") or filename.endswith(".png"):
+            if filename.lower().endswith((".jpg", ".png")):
                 img_path = os.path.join(folder_path, filename)
                 img = cv2.imread(img_path)
-                img = cv2.resize(img, (128, 128))
-                images.append(img)
+                if img is not None:
+                    img = cv2.resize(img, (128, 128))
+                    images.append(img)
+                else:
+                    logger.warning(f"Failed to load image: {img_path}")
                 
+        if not images:
+            logger.warning("No images loaded. Please check the folder path and image files.")
+            return np.array([])
+
         images = np.array(images, dtype="float32") / 255.0  # Normalize
 
         # Ensure shape is correct
@@ -75,13 +83,17 @@ class AutoEncoder:
 
     def detect_anomaly(self, table_only):
         """Detect anomalies by comparing reconstruction errors."""
+        if self.autoencoder is None:
+            logger.error("Autoencoder model is not loaded or trained.")
+            return False
+
         anomaly = cv2.resize(table_only, (128, 128)) / 255.0
         anomaly = np.expand_dims(anomaly, axis=0)  # Ensure shape (1, 128, 128, 3)
 
         reconstructed = self.autoencoder.predict(anomaly, verbose=0)
-        mse = np.mean(np.power(anomaly - reconstructed, 2))  # Compute Mean Squared Error
+        mse = np.mean(np.square(anomaly - reconstructed))  # Compute Mean Squared Error
         logger.info(f"MSE: {mse}")
-        return mse > self.config["anomaly_threshold"]
+        return mse > self.config.get("anomaly_threshold", 0.01)
 
 
 
