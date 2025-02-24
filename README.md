@@ -1,21 +1,21 @@
 # **Pool Ball Detection**
 
-## **📌 Overview**
+## **Overview**
 
-This project performs real-time **pool ball and table detection** using OpenCV. It supports camera calibration, image undistortion, and real-time processing of frames from two cameras.
+This project performs real time pool ball detection using computer vision. It is capable of communicating with a rail system, and detecting obstructions on the table.
 
-## **🚀 Features**
+## **Features**
 
-- **Camera Calibration & Undistortion**: Uses pre-calibrated parameters to correct lens distortions.
-- **Ball Detection**: Detects and highlights balls in the stitched image, identifying their colors.
-- **Table Detection**: Detects a pool table and highlights the perimeter.
-- **Configuration via YAML**: Adjust settings dynamically without modifying the code.
+- **Ball detection** - Performs ball detection using pre-trained computer vision model.
+- **Camera calibration** - Calibrates cameras to reduce distortion.
+- **Obstruction detection** - Uses an autoencoder to detect obstructions on the table for increased safety.
+- **Configuration** - Key features can be modified with an intuative configuration file, with support for multiple profiles.
 
 ---
 
-## **📦 Installation**
+## **Installation**
 
-### **🔧 Prerequisites**
+### **Prerequisites**
 
 Ensure you have Python **3.8+** installed. Then, install dependencies:
 
@@ -25,9 +25,9 @@ pip install -r requirements.txt
 
 ---
 
-## **⚙️ Usage**
+## **Usage**
 
-### **1️⃣ Running the Project**
+### **Running the Project**
 
 To start the program, simply run:
 
@@ -37,13 +37,15 @@ python main.py
 
 - This will create a default configuration file and profile.
 
-### **2️⃣ Configuration**
+### **Configuration**
 
 Modify `config.yaml` to adjust settings such as:
 
 - Camera ports
-- Color profile
+- Network ports
 - Size parameters
+- Color parameters
+- File paths
 
 **Important settings**
 
@@ -52,7 +54,7 @@ Modify `config.yaml` to adjust settings such as:
 - `calibrate_cameras` Default to `false`, if setting to `true` then camera calibration photos must be provided.
 - `calibration_folders` Provide the folder name of the calibration photos. Must be placed within `/config/calibration/`.
   - Example: `calibration_folders : ["/folder_cam1", "/folder_cam2"]`
-- `profile` Name of the color profile you wish to use.
+- `detection_model_path` Provide the path of a ball detection model if you wish to use your own.
 
 Optionally create a new configuration profile with:
 
@@ -60,59 +62,13 @@ Optionally create a new configuration profile with:
 python main.py --create-profile [name]
 ```
 
-**Modifying colors**
-
-Colors can be modified by running:
-
-```bash
-python config/adjust_colors.py
-```
-
-This will launch a window which will allow you to adjust and save the HSV values for different colors in `colors.yaml`.
-
-Color profiles can also be created to allow you to save common values under different lighting conditions.
-
----
-
-## **📁 Project Structure**
-
-```
-📂 project_root/
-│-- 📂 config/                  # Configuration files
-|   |-- 📂 calibration/         # Folder for camera calibration photos
-|   |-- config.yaml             # Configuration file
-│-- 📂 src/                     # Source code
-|   |-- 📂 detection/           # Detection code
-│   │-- 📂 processing/          # Frame processing code, including stitching
-│   │-- 📂 tracking/            # Ball tracking code
-│   │-- main.py                 # Entry point of the project
-│-- requirements.txt            # Dependencies
-│-- README.md                   # Project documentation
-```
-
----
-
-## **🛠️ Development**
-
-### **👨‍💻 Running with Custom Config**
+### **Running with Custom Config**
 
 To test with a different config profile:
 
 ```bash
 python main.py --profile [name]
 ```
-
----
-
-## **🙌 Contributing**
-
-1. Fork the repo.
-2. Create a new branch (`feature-branch`).
-3. Commit changes (`git commit -m "Added new feature"`).
-4. Push to branch (`git push origin feature-branch`).
-5. Open a pull request.
-
----
 
 ## **📜 License**
 
