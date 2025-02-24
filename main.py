@@ -109,15 +109,17 @@ def main():
 
         drawing_frame = stitched_frame.copy()
 
-        # Detect anomalies in the frame if required
-        if not args.collect_ae_data or not args.no_anomaly:
-            if autoencoder.detect_anomaly(stitched_frame):
-                logger.warning("Object detected!")
 
         # Detect and draw balls to frame
         detected_balls, labels = detection_model.detect(stitched_frame)
         detection_model.draw(drawing_frame, detected_balls)
         
+        # Detect anomalies in the frame if required
+        if not args.collect_ae_data or not args.no_anomaly:
+            table_only = detection_model.extract_bounding_boxes(stitched_frame, detected_balls)
+            if autoencoder.detect_anomaly(table_only):
+                logger.warning("Object detected!")
+
         # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
         stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls, labels)
 
