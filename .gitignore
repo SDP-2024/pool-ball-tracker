@@ -203,3 +203,4 @@ config/table_points.json
 config/hsv_adjuster.py
 
 model/clean_images
+model/autoencoder_model.keras
