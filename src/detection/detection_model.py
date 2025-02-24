@@ -9,8 +9,14 @@ logger = logging.getLogger(__name__)
 
 class DetectionModel:
     def __init__(self, config):
+        """
+        Initializes the DetectionModel with the given configuration.
+
+        Args:
+            config (dict): Configuration dictionary containing model path, confidence threshold, font scale, and font thickness.
+        """
         self.config = config
-        self.model_path = config["model_path"]
+        self.model_path = config["detection_model_path"]
         self.model = self.load_model()
         self.labels = self.model.names
         self.bbox_colors = [(0,0,0), (255,0,0), (255,255,255), (255,255,0)]
@@ -19,43 +25,36 @@ class DetectionModel:
 
 
     def load_model(self):
+        # Load model if present
         if (not os.path.exists(self.model_path)):
-            logger.error("Model path does not exist.")
             return None
         else:
             return YOLO(self.model_path, task='detect')
         
+
     def detect(self, frame):
+        """
+        Detect objects in the given frame.
+
+        Args:
+            frame (numpy.ndarray): The input image frame in which to detect objects.
+
+        Returns:
+            tuple: A tuple containing the detection results and the labels.
+        """
         self.count = 0
         results = self.model(frame, verbose=False)
         return results, self.labels
     
-    # def track(self, frame):
-    #     results = self.model.track(frame, persist=True)
 
-    #     # Get the boxes and track IDs
-    #     boxes = results[0].boxes.xywh.cpu()
-    #     track_ids = results[0].boxes.id.int().cpu().tolist()
-
-    #     # Visualize the results on the frame
-    #     annotated_frame = results[0].plot()
-
-    #     # Plot the tracks
-    #     for box, track_id in zip(boxes, track_ids):
-    #         x, y, w, h = box
-    #         track = self.track_history[track_id]
-    #         track.append((float(x), float(y)))  # x, y center point
-    #         if len(track) > 30:  # retain 90 tracks for 90 frames
-    #             track.pop(0)
-
-    #         # Draw the tracking lines
-    #         points = np.hstack(track).astype(np.int32).reshape((-1, 1, 2))
-    #         cv2.polylines(annotated_frame, [points], isClosed=False, color=(230, 230, 230), thickness=2)
-
-    #     # Display the annotated frame
-    #     cv2.imshow("YOLO11 Tracking", annotated_frame)
-    
     def draw(self, frame, detected_balls):
+        """
+        Draw bounding boxes and labels on the frame for detected objects.
+
+        Args:
+            frame (numpy.ndarray): The input image frame on which to draw.
+            detected_balls (tuple): The detection results containing bounding boxes and labels.
+        """
         boxes = detected_balls[0].boxes
         for ball in boxes:
             xyxy_tensor = ball.xyxy.cpu() # Detections in Tensor format in CPU memory
@@ -74,13 +73,23 @@ class DetectionModel:
                 label_ymin = max(ymin, labelSize[1] + 10)
                 cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], (0, 0, 0), self.config["font_thickness"]) # Draw label text
 
-                # Basic example: count the number of objects in the image
                 self.count += 1
 
-        cv2.putText(frame, f'Number of objects: {self.count}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0), 1) # Draw total number of detected objects
+        cv2.putText(frame, f'Number of objects: {self.count}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0), 1) # Draw count of objects
         cv2.imshow("Detection", frame)
 
+
     def extract_bounding_boxes(self, frame, balls):
+        """
+        Extract bounding boxes from the detected balls and create a mask for anomaly detection.
+
+        Args:
+            frame (numpy.ndarray): The input image frame from which to extract bounding boxes.
+            balls (tuple): The detection results containing bounding boxes.
+
+        Returns:
+            numpy.ndarray: The frame with the detected objects inpainted.
+        """
         detected_balls = []
         for ball in balls:
             for box in ball.boxes.xyxy:
@@ -93,7 +102,7 @@ class DetectionModel:
 
         table_only = cv2.inpaint(frame, mask, 3, cv2.INPAINT_TELEA)
 
-        return table_only # All regions to be checked for anomolies
+        return table_only # All regions to be checked for anomalies
 
 
             
