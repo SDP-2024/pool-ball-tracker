@@ -83,7 +83,7 @@ def main():
 
     detection_model = DetectionModel(config)
     autoencoder = None
-    if not args.collect_data:
+    if not args.collect_ae_data:
         autoencoder = AutoEncoder(config)
     if detection_model.model is None: # Check if model loaded successfully
         return
@@ -104,13 +104,13 @@ def main():
         # Get top-down view of the table
         stitched_frame = frame_1 if frame_2 is None else get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
 
-        if args.collect_data: # Collect data for autoencoder
+        if args.collect_ae_data: # Collect data for autoencoder
             capture_frame(config, stitched_frame)
 
         drawing_frame = stitched_frame.copy()
 
         # Detect anomalies in the frame if required
-        if not args.collect_data or not args.no_anomaly:
+        if not args.collect_ae_data or not args.no_anomaly:
             if autoencoder.detect_anomaly(stitched_frame):
                 logger.warning("Object detected!")
 
