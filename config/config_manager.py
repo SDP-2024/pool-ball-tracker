@@ -44,6 +44,9 @@ schema = {
         "clean_images_path": {"type": "string", "min" : 0},
         "anomaly_threshold": {"type": "float", "min": 0, "max": 1.0},
         "autoencoder_model_path": {"type": "string", "min" : 0},
+        "use_db": {"type": "boolean"},
+        "db_ref": {"type": "string", "min" : 0},
+        "db_url": {"type": "string", "min" : 0},
     },
 }
 
@@ -178,6 +181,9 @@ def create_profile(path="../config", name="default"):
             "clean_images_path": "/clean_images",
             "anomaly_threshold": 0.01,
             "autoencoder_model_path": "/model/autoencoder_model.keras",
+            "use_db": False,
+            "db_ref": "/pool-pal/game-state",
+            "db_url": "https://pool-pal.firebaseio.com"
         }
     
     try:

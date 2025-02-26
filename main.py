@@ -16,6 +16,8 @@ from src.detection.autoencoder import AutoEncoder
 from src.tracking.coordinate_system import Coordinate_System
 from src.networking.network import Network
 from src.networking.video_feed import start_stream
+from src.database.db_controller import DBController
+from src.logic.game_state import StateManager
 
 app = Flask(__name__)
 
@@ -95,6 +97,13 @@ def main():
     if detection_model.model is None: # Check if model loaded successfully
         return
     
+    if config["use_db"]:
+        db_controller = DBController(config)
+        db_thread = threading.Thread(target=db_controller.setup)
+        db_thread.start()
+
+    state_manager = StateManager(config)
+    
     # Process the frames
     while True:
         # Read frames
@@ -120,6 +129,10 @@ def main():
         # Detect and draw balls to frame
         detected_balls, labels = detection_model.detect(stitched_frame)
         detection_model.draw(drawing_frame, detected_balls)
+
+        state = state_manager.update(detected_balls, labels)
+        if config["use_db"]:
+            db_controller.update(state)
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data or not args.no_anomaly:
@@ -151,6 +164,8 @@ def main():
     if camera_2 is not None:
         camera_2.stop()
     cv2.destroyAllWindows()
+    if config["use_db"]:
+        db_controller.cleanup()
 
 
 def parse_args():
