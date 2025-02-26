@@ -18,34 +18,35 @@ class Network:
         self.app.run(host="0.0.0.0", port=self.config["port"])
 
     def send(self, command):
-        payload = {'x' : command[0], 'y': command[1]}
+        payload = {'x': command[0], 'y': command[1]}
         try:
             response = requests.post(self.update_url, json=payload)
-            if response.status_code == 200:
-                logger.info(f"Coordinates sent: ({payload['x']}, {payload['y']})")
-            else:
-                logger.error(f"Failed to send data: {response.status_code}")
-
+            response.raise_for_status()
+            logger.info(f"Coordinates sent: ({payload['x']}, {payload['y']})")
+        except requests.exceptions.HTTPError as http_err:
+            logger.error(f"HTTP error occurred: {http_err}")
+        except requests.exceptions.RequestException as req_err:
+            logger.error(f"Request error occurred: {req_err}")
         except Exception as e:
-            logger.error(f"Error {e}")
+            logger.error(f"An error occurred: {e}")
         
 
     def poll_ready(self):
         current_time = time.time()
-        if current_time - self.time_since_last_poll >= self.time_between_poll:
-            try:
-                response = requests.get(self.ready_url)
-                if response.status_code == 200 and response.text.strip().lower() == "true":
-                    logger.info("Ready")
-                    self.time_since_last_poll = time.time()
-                    return True
-                else:
-                    logger.info("Not ready")
-                    self.time_since_last_poll = time.time()
-                    return False
-            except Exception as e:
-                logger.error(f"Error checking readiness: {e}")
+        if current_time - self.time_since_last_poll < self.time_between_poll:
+            return False
+
+        try:
+            response = requests.get(self.ready_url)
+            if response.status_code == 200 and response.text.strip().lower() == "true":
+                logger.info("Ready")
+                self.time_since_last_poll = current_time
+                return True
+            else:
+                logger.info("Not ready")
+                self.time_since_last_poll = current_time
                 return False
-            
-        else:
+        except Exception as e:
+            logger.error(f"Error checking readiness: {e}")
+            self.time_since_last_poll = current_time
             return False
