@@ -15,6 +15,7 @@ from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.tracking.coordinate_system import Coordinate_System
 from src.networking.network import Network
+from src.networking.video_feed import start_stream
 
 app = Flask(__name__)
 
@@ -78,8 +79,14 @@ def main():
         table_pts_cam1, table_pts_cam2 = manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2)
         stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
         coordinate_system = Coordinate_System(config, stitched_frame.shape[0], stitched_frame.shape[1])
+        #video_stream = VideoTrack(config, table_pts_cam1, table_pts_cam2)
     else:
         coordinate_system = Coordinate_System(config, frame_1.shape[0], frame_1.shape[1])
+        #video_stream = VideoStream(config)
+
+    if config["video_stream"]:
+        stream_thread = threading.Thread(target=start_stream)
+        stream_thread.start()
 
     detection_model = DetectionModel(config)
     autoencoder = None
