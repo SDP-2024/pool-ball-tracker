@@ -48,6 +48,8 @@ schema = {
         "use_db": {"type": "boolean"},
         "db_ref": {"type": "string", "min" : 0},
         "db_url": {"type": "string", "min" : 0},
+        "db_update_interval": {"type": "float", "min": 0.01},
+        "position_threshold": {"type": "integer", "min": 0},
     },
 }
 
@@ -185,7 +187,9 @@ def create_profile(path="../config", name="default"):
             "autoencoder_model_path": "/model/autoencoder_model.keras",
             "use_db": False,
             "db_ref": "/pool-pal/game-state",
-            "db_url": "https://pool-pal.firebaseio.com"
+            "db_url": "https://pool-pal.firebaseio.com",
+            "db_update_interval": 0.1,
+            "position_threshold": 10,
         }
     
     try:

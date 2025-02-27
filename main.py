@@ -28,7 +28,8 @@ logging.basicConfig(
     ]
 )
 
-
+# TODO: Refactor for readibility, main file should only have main function and argument parsing.
+# TODO: Split into stages: initialization, processing, cleanup.
 # Main function
 def main():
     """
@@ -52,11 +53,6 @@ def main():
     if args.set_points:
         reset_points()
     
-    # If networking is enabled, start the server
-    network = None
-    if config.get("use_networking", False):
-        network = Network(config)
-
     # Calibrate cameras
     mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
     camera_1, camera_2 = load_cameras(config)
@@ -80,23 +76,29 @@ def main():
         coordinate_system = Coordinate_System(config, frame_1.shape[0], frame_1.shape[1])
         #video_stream = VideoStream(config)
 
+    # If networking is enabled, start the server
+    network = None
+    if config.get("use_networking", False):
+        network = Network(config)
+
     if config["video_stream"]:
         stream_thread = threading.Thread(target=start_stream)
         stream_thread.start()
 
+    if config["use_db"]:
+        db_controller = DBController(config)
+        db_thread = threading.Thread(target=db_controller.setup)
+        db_thread.start()
+
+    state_manager = StateManager(config, db_controller)
     detection_model = DetectionModel(config)
+
     autoencoder = None
     if not args.collect_ae_data:
         autoencoder = AutoEncoder(config)
     if detection_model.model is None: # Check if model loaded successfully
         return
     
-    if config["use_db"]:
-        db_controller = DBController(config)
-        db_thread = threading.Thread(target=db_controller.setup)
-        db_thread.start()
-
-    state_manager = StateManager(config)
     
     # Process the frames
     while True:
@@ -124,9 +126,7 @@ def main():
         detected_balls, labels = detection_model.detect(stitched_frame)
         detection_model.draw(drawing_frame, detected_balls)
 
-        state = state_manager.update(detected_balls, labels)
-        if config["use_db"]:
-            db_controller.update(state)
+        state_manager.update(detected_balls, labels)
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data or not args.no_anomaly:
