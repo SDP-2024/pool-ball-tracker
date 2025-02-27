@@ -1,44 +1,29 @@
-import requests
 import time
 import logging
+import serial
 
 logger = logging.getLogger(__name__)
 
 class Network:
     def __init__(self, config, app):
         self.config = config
-        self.esp_ip = config["esp_ip"]
-        self.update_url = f"http://{self.esp_ip}/{config['update_endpoint']}"
-        self.ready_url = f"http://{self.esp_ip}/{config['ready_endpoint']}"
-        self.app = app
+        self.pin = config["arduino_pin"]
+        self.arduino = serial.Serial(self.pin, 9600, timeout=1)
         self.time_between_poll = self.config["poll_interval"]
         self.time_since_last_poll = time.time() - self.time_between_poll 
 
-    def setup(self):
-        self.app.run(host="0.0.0.0", port=self.config["port"])
-
     def send(self, command):
-        payload = {'x': command[0], 'y': command[1]}
-        try:
-            response = requests.post(self.update_url, json=payload)
-            response.raise_for_status()
-            logger.info(f"Coordinates sent: ({payload['x']}, {payload['y']})")
-        except requests.exceptions.HTTPError as http_err:
-            logger.error(f"HTTP error occurred: {http_err}")
-        except requests.exceptions.RequestException as req_err:
-            logger.error(f"Request error occurred: {req_err}")
-        except Exception as e:
-            logger.error(f"An error occurred: {e}")
+        self.arduino.write(f"{command}\n".encode())
         
-
     def poll_ready(self):
         current_time = time.time()
         if current_time - self.time_since_last_poll < self.time_between_poll:
             return False
 
         try:
-            response = requests.get(self.ready_url)
-            if response.status_code == 200 and response.text.strip().lower() == "true":
+            self.arduino.write("STATUS\n".encode())
+            response = self.arduino.readline().decode().strip()
+            if response.status_code == 200 and response.text.strip().lower() == "ready":
                 logger.info("Ready")
                 self.time_since_last_poll = current_time
                 return True

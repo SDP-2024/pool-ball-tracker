@@ -1,10 +1,8 @@
-from warnings import filters
 import cv2
 import argparse
 import time
 import logging
 import threading
-from flask import Flask
 from imutils.video import VideoStream
 from random import randint
 
@@ -18,8 +16,6 @@ from src.networking.network import Network
 from src.networking.video_feed import start_stream
 from src.database.db_controller import DBController
 from src.logic.game_state import StateManager
-
-app = Flask(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +55,7 @@ def main():
     # If networking is enabled, start the server
     network = None
     if config.get("use_networking", False):
-        network = Network(config, app)
-        server_thread = threading.Thread(target=network.setup)
-        server_thread.start()
+        network = Network(config)
 
     # Calibrate cameras
     mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
