@@ -15,7 +15,10 @@ class StateManager:
             if conf > self.config["conf_threshold"]:
                 middlex = int((xmin + xmax) // 2)
                 middley = int((ymin + ymax) // 2)
-                balls[classname] = {"x": middlex, "y": middley}
 
-        game_state = {"balls": balls}
-        return game_state
+                if classname not in balls:
+                    balls[classname] = []
+                balls[classname].append({"x": middlex, "y": middley})
+
+        self.previous_state = balls
+        return {"balls": balls}
