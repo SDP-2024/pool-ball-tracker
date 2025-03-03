@@ -17,6 +17,7 @@ def get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2):
     top_down_view2 = cv2.warpPerspective(frame_2, H2, output_size)
 
     # Stack frames vertically
+    top_down_view2 = cv2.rotate(top_down_view2, cv2.ROTATE_180)
     stitched_frame = np.vstack((top_down_view1, top_down_view2))
 
     return stitched_frame

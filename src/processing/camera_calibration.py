@@ -80,10 +80,9 @@ def handle_calibration(config):
         logger.error("No calibration folders supplied. Please check config.yaml.")
         return mtx_1, dst_1, mtx_2, dst_2
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))
     
     def calibrate_and_log(camera_index, folder):
-        folder_path = os.path.abspath(os.path.join(script_dir, "../../config/calibration/", folder))
+        folder_path = os.path.abspath(folder)
         logger.info(f"Calibrating camera {camera_index}")
         return calibrate_camera(folder_path)
 
@@ -192,12 +191,15 @@ def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_
         logger.info("Select 4 points for Camera 1 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
 
         while len(table_pts_cam1) < 4 or len(table_pts_cam2) < 4:
-            ret_1, frame_1 = camera_1.read()
-            ret_2, frame_2 = camera_2.read() if camera_2 else (False, None)
+            frame_1 = camera_1.read()
+            if frame_1 is None:
+                logger.error("Failed to grab frame from Camera 1")
+                return None, None
+            
+            frame_2 = camera_2.read() if camera_2 else None
+            if camera_2 and frame_2 is None:
+                logger.error("Failed to grab frame from Camera 2")
 
-            if not ret_1 or (camera_2 and not ret_2):
-                logger.error("Failed to read from one or both cameras.")
-                break
 
             frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
 
