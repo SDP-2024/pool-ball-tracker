@@ -1,37 +1,36 @@
+import socketio
 import time
+import threading
 import logging
-import serial
 
 logger = logging.getLogger(__name__)
 
 class Network:
-    def __init__(self, config, app):
+    def __init__(self, config):
         self.config = config
-        self.pin = config["arduino_pin"]
-        self.arduino = serial.Serial(self.pin, 9600, timeout=1)
-        self.time_between_poll = self.config["poll_interval"]
-        self.time_since_last_poll = time.time() - self.time_between_poll 
+        self.sio = socketio.Client()
 
-    def send(self, command):
-        self.arduino.write(f"{command}\n".encode())
-        
-    def poll_ready(self):
-        current_time = time.time()
-        if current_time - self.time_since_last_poll < self.time_between_poll:
-            return False
+        @self.sio.event
+        def connect():
+            logger.info("Connected to server.")
+            self.sio.emit("join", "ballPositions")
+            self.sio.emit("join", "obstructionDetected")
 
+    def connect(self):
         try:
-            self.arduino.write("STATUS\n".encode())
-            response = self.arduino.readline().decode().strip()
-            if response.status_code == 200 and response.text.strip().lower() == "ready":
-                logger.info("Ready")
-                self.time_since_last_poll = current_time
-                return True
-            else:
-                logger.info("Not ready")
-                self.time_since_last_poll = current_time
-                return False
+            self.sio.connect(self.config["poolpal_url"], wait=False)
         except Exception as e:
-            logger.error(f"Error checking readiness: {e}")
-            self.time_since_last_poll = current_time
-            return False
+            logger.error(f"Connection failed: {e}")
+
+    def send_balls(self, balls):
+        logger.info("Sending balls: %s", balls)
+        self.sio.emit("ballPositions", balls)
+
+    def send_obstruction(self, obstruction_detected):
+        self.sio.emit("obstructionDetected", obstruction_detected)
+
+    def disconnect(self):
+        self.sio.disconnect()
+
+    def start(self):
+        threading.Thread(target=self.connect, daemon=True).start()

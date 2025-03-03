@@ -11,7 +11,6 @@ from src.processing.camera_calibration import *
 from src.processing.frame_processing import *
 from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
-from src.tracking.coordinate_system import Coordinate_System
 from src.networking.network import Network
 from src.networking.video_feed import start_stream
 from src.database.db_controller import DBController
@@ -70,16 +69,17 @@ def main():
     if camera_2 is not None:
         table_pts_cam1, table_pts_cam2 = manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2)
         stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
-        coordinate_system = Coordinate_System(config, stitched_frame.shape[0], stitched_frame.shape[1])
         #video_stream = VideoTrack(config, table_pts_cam1, table_pts_cam2)
     else:
-        coordinate_system = Coordinate_System(config, frame_1.shape[0], frame_1.shape[1])
+        pass
         #video_stream = VideoStream(config)
 
     # If networking is enabled, start the server
     network = None
     if config.get("use_networking", False):
         network = Network(config)
+        network.start()
+        state_manager = StateManager(config, network)
 
     if config["video_stream"]:
         stream_thread = threading.Thread(target=start_stream)
@@ -90,7 +90,6 @@ def main():
         db_thread = threading.Thread(target=db_controller.setup)
         db_thread.start()
 
-    state_manager = StateManager(config, db_controller)
     detection_model = DetectionModel(config)
 
     autoencoder = None
@@ -131,17 +130,15 @@ def main():
         # Detect anomalies in the frame if required
         if not args.collect_ae_data or not args.no_anomaly:
             table_only = detection_model.extract_bounding_boxes(stitched_frame, detected_balls)
-            if autoencoder.detect_anomaly(table_only):
-                logger.warning("Object detected!")
-
-        # Translate the (x,y) coordinates of all the balls into values that the stepper motor can use to reach the ball
-        stepper_command = coordinate_system.translate_position_to_stepper_commands(detected_balls, labels)
+            if network:
+                if autoencoder.detect_anomaly(table_only):
+                    network.send_obstruction(True)
+                else:
+                    network.send_obstruction(False)
 
         # If using networking, check if rails are ready and send the stepper command
-        if config["use_networking"] and network.poll_ready():
-            network.send(stepper_command)
-        if stepper_command is not None:
-            logger.info(f"Steps x: {stepper_command[0]}, Steps y: {stepper_command[1]}")
+        #if config["use_networking"]:
+            #network.send_balls(detected_balls)
 
         # Display frames
         cv2.imshow("Camera 1", frame_1)
@@ -160,6 +157,8 @@ def main():
     cv2.destroyAllWindows()
     if config["use_db"]:
         db_controller.cleanup()
+    if config["use_networking"]:
+        network.disconnect()
 
 
 def parse_args():

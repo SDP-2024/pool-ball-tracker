@@ -1,18 +1,32 @@
 import time
+import logging
+
+logger = logging.getLogger(__name__)
+
 class StateManager:
-    def __init__(self, config, db_controller):
+    def __init__(self, config, network):
         self.config = config
         self.previous_state = None
-        self.db_controller = db_controller
+        self.network = network
         self.time_between_updates = self.config["db_update_interval"]
         self.time_since_last_update = time.time() - self.time_between_updates
-    # TODO: Move db updating to state manager so frequency can be reduced, and if balls havent moved enough, stop updating.
-    # TODO: Implement game logic so that the turn can be decided.
+
     def update(self, data, labels):
         current_time = time.time()
         if current_time - self.time_since_last_update < self.time_between_updates:
+            logger.debug("Skipping update: Too soon since last update.")
             return
+
         balls = {}
+        position_threshold = self.config["position_threshold"]
+
+        # Initialize missing_frames for each ball in the previous state
+        if self.previous_state:
+            for color, prev_balls in self.previous_state.items():
+                for prev_ball in prev_balls:
+                    prev_ball["missing_frames"] = prev_ball.get("missing_frames", 0) + 1
+
+        # Process detected balls
         for ball in data[0].boxes:
             xyxy_tensor = ball.xyxy.cpu()
             xyxy = xyxy_tensor.numpy().squeeze()
@@ -25,10 +39,30 @@ class StateManager:
                 middlex = int((xmin + xmax) // 2)
                 middley = int((ymin + ymax) // 2)
 
-                if classname not in balls:
-                    balls[classname] = []
-                balls[classname].append({"x": middlex, "y": middley})
+                # Check if this ball is close to a previous position
+                is_new_position = True
+                if self.previous_state:
+                    for prev_ball in self.previous_state.get(classname, []):
+                        dx = abs(prev_ball["x"] - middlex)
+                        dy = abs(prev_ball["y"] - middley)
+                        if dx <= position_threshold and dy <= position_threshold:
+                            is_new_position = False
+                            prev_ball["x"] = middlex  # Update position
+                            prev_ball["y"] = middley
+                            break  # No need to check further, we found a match
 
-        self.previous_state = balls
-        self.db_controller.update({"balls": balls})
-        self.time_since_last_update = current_time
+                if is_new_position:
+                    if classname not in balls:
+                        balls[classname] = []
+                    balls[classname].append({"x": middlex, "y": middley})
+
+        # Update the database with the new state
+        if balls:
+            logger.info("Updating state with detected balls: %s", balls)
+            self.previous_state = balls
+            self.time_since_last_update = current_time
+
+            if self.network:  # Ensure network is not None
+                self.network.send_balls({"balls": balls})
+            else:
+                logger.warning("Network is not initialized. Cannot send ball positions.")

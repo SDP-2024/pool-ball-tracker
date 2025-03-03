@@ -50,6 +50,8 @@ schema = {
         "db_url": {"type": "string", "min" : 0},
         "db_update_interval": {"type": "float", "min": 0.01},
         "position_threshold": {"type": "integer", "min": 0},
+        "poolpal_url" : {"type": "string", "min": 0},
+        "poolpal_subdomain": {"type": "string", "min": 0}
     },
 }
 
@@ -190,6 +192,8 @@ def create_profile(path="../config", name="default"):
             "db_url": "https://pool-pal.firebaseio.com",
             "db_update_interval": 0.1,
             "position_threshold": 10,
+            "poolpal_url": "https://pool-pal.serveo.net",
+            "poolpal_subdomain": "pool-pal"
         }
     
     try:
