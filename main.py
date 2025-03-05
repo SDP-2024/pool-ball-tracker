@@ -27,8 +27,6 @@ logging.basicConfig(
     ]
 )
 
-# TODO: Refactor for readibility, main file should only have main function and argument parsing.
-# TODO: Split into stages: initialization, processing, cleanup.
 # Main function
 def main():
     """
@@ -58,8 +56,6 @@ def main():
 
     # Allow cameras to warm up
     time.sleep(2.0)
-    # Create a named window with the WINDOW_NORMAL flag to allow resizing
-    cv2.namedWindow("Stitched Image (Cropped)", cv2.WINDOW_NORMAL)
         
     # Read frames
     frame_1 = camera_1.read()
@@ -69,10 +65,7 @@ def main():
     if camera_2 is not None:
         table_pts_cam1, table_pts_cam2 = manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2)
         stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
-        #video_stream = VideoTrack(config, table_pts_cam1, table_pts_cam2)
-    else:
-        pass
-        #video_stream = VideoStream(config)
+        logger.info(stitched_frame.shape)
 
     # If networking is enabled, start the server
     network = None
@@ -85,10 +78,6 @@ def main():
         stream_thread = threading.Thread(target=start_stream)
         stream_thread.start()
 
-    if config["use_db"]:
-        db_controller = DBController(config)
-        db_thread = threading.Thread(target=db_controller.setup)
-        db_thread.start()
 
     detection_model = DetectionModel(config)
 
@@ -117,6 +106,8 @@ def main():
 
         if args.collect_ae_data: # Collect data for autoencoder
             capture_frame(config, stitched_frame)
+        if args.collect_model_images:
+            capture_frame_for_training(config, stitched_frame)
 
         drawing_frame = stitched_frame.copy()
 
@@ -136,15 +127,6 @@ def main():
                 else:
                     network.send_obstruction(False)
 
-        # If using networking, check if rails are ready and send the stepper command
-        #if config["use_networking"]:
-            #network.send_balls(detected_balls)
-
-        # Display frames
-        cv2.imshow("Camera 1", frame_1)
-        if frame_2 is not None:
-            cv2.imshow("Camera 2", frame_2)
-        cv2.imshow("Stitched Image (Cropped)", stitched_frame)
 
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -155,8 +137,8 @@ def main():
     if camera_2 is not None:
         camera_2.stop()
     cv2.destroyAllWindows()
-    if config["use_db"]:
-        db_controller.cleanup()
+    # if config["use_db"]:
+    #     db_controller.cleanup()
     if config["use_networking"]:
         network.disconnect()
 
@@ -185,6 +167,7 @@ def parse_args():
     parser.add_argument(
         "--collect-ae-data",
         action='store_true',
+        default=False
     )
 
     parser.add_argument(
@@ -195,6 +178,13 @@ def parse_args():
     parser.add_argument(
         "--no-anomaly",
         action='store_true',
+        default = False
+    )
+
+    parser.add_argument(
+        "--collect-model-images",
+        action="store_true",
+        default=False
     )
 
     return parser.parse_args()
@@ -219,6 +209,17 @@ def load_cameras(config):
         logger.error(f"Error starting camera: {e}")
         return
     
+def capture_frame_for_training(config, frame):
+    path=f"./{config["model_training_path"]}"
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    if cv2.waitKey(1) & 0xFF == ord('t'):
+        num = randint(0, 10000)
+        filename = f"{path}train_{num}.jpg"
+        cv2.imwrite(filename, frame)
+        time.sleep(0.1)
+        logger.info(f"Image {num} saved")
 
 def capture_frame(config, frame):
     path = f"./{config["clean_images_path"]}"
@@ -226,13 +227,14 @@ def capture_frame(config, frame):
         os.makedirs(path)
     
     if cv2.waitKey(1) & 0xFF == ord('t'):
-        filename = f"{path}clean_{randint(0, 10000)}.jpg"
+        num = randint(0, 10000)
+        filename = f"{path}clean_{num}.jpg"
         cv2.imwrite(filename, frame)
         time.sleep(0.1)
-        logger.info(f"Image {randint(0, 10000)} saved")
+        logger.info(f"Image {num} saved")
 
 def reset_ae_data(config):
-    path = f"./{config["clean_images_path"]}"
+    path = f"./{config["clean_images_path"]}/"
     if os.path.exists(path):
         for file in os.listdir(path):
             os.remove(path + file)
