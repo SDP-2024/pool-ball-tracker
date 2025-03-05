@@ -205,3 +205,5 @@ config/hsv_adjuster.py
 model/clean_images
 model/autoencoder_model.keras
 src/database/serviceAccountKey.json
+model/training_images
+model/train
