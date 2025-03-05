@@ -1,52 +1,45 @@
-import requests
+import socketio
 import time
+import threading
 import logging
 
 logger = logging.getLogger(__name__)
 
+# TODO: If cannot connect, then keep trying until connection is made (to prevent needing to restart program if connection lost)
 class Network:
-    def __init__(self, config, app):
+    def __init__(self, config):
         self.config = config
-        self.esp_ip = config["esp_ip"]
-        self.update_url = f"http://{self.esp_ip}/{config['update_endpoint']}"
-        self.ready_url = f"http://{self.esp_ip}/{config['ready_endpoint']}"
-        self.app = app
-        self.time_between_poll = self.config["poll_interval"]
-        self.time_since_last_poll = time.time() - self.time_between_poll 
+        self.sio = socketio.Client()
 
-    def setup(self):
-        self.app.run(host="0.0.0.0", port=self.config["port"])
+        @self.sio.event
+        def connect():
+            logger.info("Connected to server.")
+            self.sio.emit("join", "ballPositions")
+            self.sio.emit("join", "obstructionDetected")
 
-    def send(self, command):
-        payload = {'x': command[0], 'y': command[1]}
+    def connect(self):
         try:
-            response = requests.post(self.update_url, json=payload)
-            response.raise_for_status()
-            logger.info(f"Coordinates sent: ({payload['x']}, {payload['y']})")
-        except requests.exceptions.HTTPError as http_err:
-            logger.error(f"HTTP error occurred: {http_err}")
-        except requests.exceptions.RequestException as req_err:
-            logger.error(f"Request error occurred: {req_err}")
+            self.sio.connect(self.config["poolpal_url"], wait=False)
         except Exception as e:
-            logger.error(f"An error occurred: {e}")
-        
+            logger.error(f"Connection failed: {e}")
 
-    def poll_ready(self):
-        current_time = time.time()
-        if current_time - self.time_since_last_poll < self.time_between_poll:
-            return False
-
+    def send_balls(self, balls):
         try:
-            response = requests.get(self.ready_url)
-            if response.status_code == 200 and response.text.strip().lower() == "true":
-                logger.info("Ready")
-                self.time_since_last_poll = current_time
-                return True
-            else:
-                logger.info("Not ready")
-                self.time_since_last_poll = current_time
-                return False
+            logger.info("Sending balls: %s", balls)
+            self.sio.emit("ballPositions", balls)
         except Exception as e:
-            logger.error(f"Error checking readiness: {e}")
-            self.time_since_last_poll = current_time
-            return False
+            logger.error("Failed to send ballPositions")
+            pass
+
+    def send_obstruction(self, obstruction_detected):
+        try:
+            self.sio.emit("obstructionDetected", obstruction_detected)
+        except Exception as e:
+            logger.error("Failed to send obstructionDetected")
+            pass
+
+    def disconnect(self):
+        self.sio.disconnect()
+
+    def start(self):
+        threading.Thread(target=self.connect, daemon=True).start()

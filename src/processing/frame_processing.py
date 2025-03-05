@@ -6,20 +6,36 @@ import random
 logger = logging.getLogger(__name__)
 
 def get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2):
-    # Compute homography matrices
-    output_size = (800, 400)
-    table_rect = np.float32([[0, 0], [output_size[0], 0], [0, output_size[1]], [output_size[0], output_size[1]]])
+    single_output_height = 520  # Height of each warped image
+    output_width = 460  # Width of each warped image
+    output_size = (single_output_height, output_width)  # (Height, Width)
 
+    table_rect = np.float32([
+        [0, 0], 
+        [output_width, 0], 
+        [0, single_output_height], 
+        [output_width, single_output_height]
+    ])
+
+    # Compute homography matrices
     H1, _ = cv2.findHomography(table_pts_cam1, table_rect)
     H2, _ = cv2.findHomography(table_pts_cam2, table_rect)
 
-    top_down_view1 = cv2.warpPerspective(frame_1, H1, output_size)
-    top_down_view2 = cv2.warpPerspective(frame_2, H2, output_size)
+    # Warp the frames
+    top_down_view1 = cv2.warpPerspective(frame_1, H1, (output_width, single_output_height))
+    top_down_view2 = cv2.warpPerspective(frame_2, H2, (output_width, single_output_height))
+
+    top_down_view1 = cv2.flip(top_down_view1, 1)
+    top_down_view2 = cv2.flip(top_down_view2, 1)
+
+    # Rotate first view if needed
+    top_down_view1 = cv2.rotate(top_down_view1, cv2.ROTATE_180)
 
     # Stack frames vertically
-    stitched_frame = np.vstack((top_down_view1, top_down_view2))
+    stitched_frame = np.vstack((top_down_view2, top_down_view1))  # Final size: (1040, 460)
 
     return stitched_frame
+
 
 def augment_image(image):
     # Random brightness adjustment
