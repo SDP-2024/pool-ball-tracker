@@ -201,7 +201,7 @@ def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_
                 logger.error("Failed to grab frame from Camera 2")
 
 
-            frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
+            #frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
 
             display_frame = frame_1.copy() if selected_cam[0] == 1 else frame_2.copy()
 

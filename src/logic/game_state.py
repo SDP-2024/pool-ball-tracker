@@ -8,7 +8,7 @@ class StateManager:
         self.config = config
         self.previous_state = None
         self.network = network
-        self.time_between_updates = self.config["db_update_interval"]
+        self.time_between_updates = self.config["network_update_interval"]
         self.time_since_last_update = time.time() - self.time_between_updates
 
     def update(self, data, labels):
@@ -36,19 +36,21 @@ class StateManager:
             conf = ball.conf.item()
 
             if conf > self.config["conf_threshold"]:
-                middlex = int((xmin + xmax) // 2)
-                middley = int((ymin + ymax) // 2)
+                middley = int((xmin + xmax) // 2)
+                middlex = int((ymin + ymax) // 2)
 
                 # Check if this ball is close to a previous position
                 is_new_position = True
                 if self.previous_state:
                     for prev_ball in self.previous_state.get(classname, []):
-                        dx = abs(prev_ball["x"] - middlex)
-                        dy = abs(prev_ball["y"] - middley)
+                        dx = abs(prev_ball["x"] - middley)
+                        dy = abs(prev_ball["y"] - middlex)
                         if dx <= position_threshold and dy <= position_threshold:
                             is_new_position = False
-                            prev_ball["x"] = middlex  # Update position
-                            prev_ball["y"] = middley
+                            # prev_ball["x"] = middley
+                            # prev_ball["y"] = middlex
+                            middley = prev_ball["x"]
+                            middlex = prev_ball["y"]
                             break  # No need to check further, we found a match
 
                 if is_new_position:
@@ -58,7 +60,7 @@ class StateManager:
 
         # Update the database with the new state
         if balls:
-            logger.info("Updating state with detected balls: %s", balls)
+            #logger.info("Updating state with detected balls: %s", balls)
             self.previous_state = balls
             self.time_since_last_update = current_time
 
