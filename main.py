@@ -12,7 +12,6 @@ from src.processing.frame_processing import *
 from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
-from src.networking.video_feed import start_stream
 from src.database.db_controller import DBController
 from src.logic.game_state import StateManager
 
@@ -74,11 +73,6 @@ def main():
         network.start()
         state_manager = StateManager(config, network)
 
-    if config["video_stream"]:
-        stream_thread = threading.Thread(target=start_stream)
-        stream_thread.start()
-
-
     detection_model = DetectionModel(config)
 
     autoencoder = None
@@ -137,8 +131,6 @@ def main():
     if camera_2 is not None:
         camera_2.stop()
     cv2.destroyAllWindows()
-    # if config["use_db"]:
-    #     db_controller.cleanup()
     if config["use_networking"]:
         network.disconnect()
 
