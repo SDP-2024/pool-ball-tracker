@@ -72,6 +72,8 @@ def main():
         network = Network(config)
         network.start()
         state_manager = StateManager(config, network)
+    else:
+        state_manager = StateManager(config)
 
     detection_model = DetectionModel(config)
 
@@ -113,13 +115,11 @@ def main():
         state_manager.update(detected_balls, labels)
         
         # Detect anomalies in the frame if required
-        if not args.collect_ae_data or not args.no_anomaly:
+        if not args.collect_ae_data and not args.no_anomaly:
             table_only = detection_model.extract_bounding_boxes(stitched_frame, detected_balls)
+            is_anomaly = autoencoder.detect_anomaly(table_only)
             if network:
-                if autoencoder.detect_anomaly(table_only):
-                    network.send_obstruction(True)
-                else:
-                    network.send_obstruction(False)
+                network.send_obstruction(is_anomaly)
 
 
         # Exit if 'q' pressed
@@ -170,11 +170,17 @@ def parse_args():
     parser.add_argument(
         "--no-anomaly",
         action='store_true',
-        default = False
+        default=False
     )
 
     parser.add_argument(
         "--collect-model-images",
+        action="store_true",
+        default=False
+    )
+
+    parser.add_argument(
+        "--debug",
         action="store_true",
         default=False
     )

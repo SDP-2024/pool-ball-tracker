@@ -6,8 +6,8 @@ import random
 logger = logging.getLogger(__name__)
 
 def get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2):
-    single_output_height = 600  # Height of each warped image
-    output_width = 600  # Width of each warped image
+    single_output_height = 520  # Height of each warped image
+    output_width = 460  # Width of each warped image
     output_size = (single_output_height, output_width)  # (Height, Width)
 
     table_rect = np.float32([
@@ -32,7 +32,7 @@ def get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2):
     top_down_view1 = cv2.rotate(top_down_view1, cv2.ROTATE_180)
 
     # Stack frames vertically
-    stitched_frame = np.vstack((top_down_view2, top_down_view1))  # Final size: (1040, 460)
+    stitched_frame = np.vstack((top_down_view2, top_down_view1))  # Final size: (1200, 600)
 
     return stitched_frame
 

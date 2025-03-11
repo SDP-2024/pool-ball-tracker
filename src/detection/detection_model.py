@@ -19,7 +19,7 @@ class DetectionModel:
         self.model_path = config["detection_model_path"]
         self.model = self.load_model()
         self.labels = self.model.names
-        self.bbox_colors = [(0,0,0), (255,0,0), (255,255,255), (255,255,0)]
+        self.bbox_colors = [(255,0,0), (0,0,0), (0,0,255), (255,255,255), (255,255,0)]
         self.count = 0
         self.track_history = defaultdict(lambda: [])
 
@@ -40,11 +40,46 @@ class DetectionModel:
             frame (numpy.ndarray): The input image frame in which to detect objects.
 
         Returns:
-            tuple: A tuple containing the detection results and the labels.
+            tuple: A tuple containing the filtered detection results and the labels.
         """
         self.count = 0
         results = self.model(frame, verbose=False)
-        return results, self.labels
+        
+        # Filter the detected balls
+        ball_counts = defaultdict(int)
+        filtered_boxes = []
+        all_balls = []
+
+        for result in results:
+            for ball in result.boxes:
+                classidx = int(ball.cls.item())
+                classname = self.labels[classidx]
+                all_balls.append((ball, classname))
+
+        # Sort balls by confidence
+        all_balls.sort(key=lambda x: x[0].conf.item(), reverse=True)
+
+        for ball, classname in all_balls:
+            if classname == "white" and ball_counts["white"] < 1:
+                ball_counts["white"] += 1
+                filtered_boxes.append(ball)
+            elif classname == "black" and ball_counts["black"] < 1:
+                ball_counts["black"] += 1
+                filtered_boxes.append(ball)
+            elif classname == "red" and ball_counts["red"] < 7:
+                ball_counts["red"] += 1
+                filtered_boxes.append(ball)
+            elif classname == "yellow" and ball_counts["yellow"] < 7:
+                ball_counts["yellow"] += 1
+                filtered_boxes.append(ball)
+            elif classname == "arm":
+                filtered_boxes.append(ball)
+        
+        # Create a new result object with filtered boxes
+        filtered_results = results[0]
+        filtered_results.boxes = filtered_boxes
+        
+        return (filtered_results,), self.labels
     
 
     def draw(self, frame, detected_balls):
@@ -92,8 +127,9 @@ class DetectionModel:
         """
         detected_balls = []
         for ball in balls:
-            for box in ball.boxes.xyxy:
-                xmin, ymin, xmax, ymax = map(int, box)
+            for box in ball.boxes:
+                xyxy = box.xyxy.cpu().numpy().squeeze()
+                xmin, ymin, xmax, ymax = map(int, xyxy)
                 detected_balls.append((xmin, ymin, xmax, ymax))
 
         mask = np.zeros_like(frame[:, :, 0])
