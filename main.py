@@ -8,6 +8,7 @@ from random import randint
 
 from config.config_manager import load_config, create_profile
 from src.processing.camera_calibration import *
+from src.processing.frame_processing import get_top_down_view
 from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
@@ -53,7 +54,7 @@ def main():
     # Calibrate cameras
     mtx_1, dst_1 = handle_calibration(config)
     camera_1 = load_cameras(config)
-
+    table_pts_cam1 = manage_point_selection(camera_1)
     # Allow cameras to warm up
     time.sleep(2.0)
         
@@ -91,7 +92,7 @@ def main():
             continue 
 
         # Get top-down view of the table
-        stitched_frame = frame_1
+        stitched_frame = get_top_down_view(frame_1, table_pts_cam1)
 
         if args.collect_ae_data: # Collect data for autoencoder
             capture_frame(config, stitched_frame)
@@ -130,10 +131,7 @@ def main():
 
 def parse_args():
     """
-    Parses command-line arguments to select a configuration profile.
-
-    Returns:
-        str: The name of the selected profile (default is 'default').
+    Parses command line arguments for greater control.
     """
     parser = argparse.ArgumentParser(description="Select a config profile to use.")
     parser.add_argument(
@@ -186,8 +184,10 @@ def parse_args():
 
     return parser.parse_args()
 
-def load_cameras(config):
-    # Attempt to load cameras
+def load_cameras():
+    """
+    Loads the pi camera.
+    """
     try:
         logger.info("Starting cameras...")
         camera_1 = Picamera2()
@@ -202,6 +202,9 @@ def load_cameras(config):
         return
     
 def capture_frame_for_training(config, frame):
+    """
+    Captures the current frame and saves to the model training path
+    """
     path=f"./{config['model_training_path']}"
     if not os.path.exists(path):
         os.makedirs(path)
@@ -214,6 +217,9 @@ def capture_frame_for_training(config, frame):
         logger.info(f"Image {num} saved")
 
 def capture_frame(config, frame):
+    """
+    Captures the current frame and saves to the clean images path
+    """
     path = f"./{config['clean_images_path']}"
     if not os.path.exists(path):
         os.makedirs(path)
@@ -226,6 +232,9 @@ def capture_frame(config, frame):
         logger.info(f"Image {num} saved")
 
 def reset_ae_data(config):
+    """
+    Deletes clean images to allow for new ones to be saved
+    """
     path = f"./{config['clean_images_path']}/"
     if os.path.exists(path):
         for file in os.listdir(path):
@@ -233,6 +242,9 @@ def reset_ae_data(config):
         logger.info("Data reset.")
 
 def reset_points():
+    """
+    Deletes saved table points so new ones can be saved
+    """
     path = "./config/table_points.json"
     if os.path.exists(path):
         os.remove(path)

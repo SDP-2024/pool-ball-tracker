@@ -159,11 +159,11 @@ def save_table_points(table_pts_cam1, file_path="config/table_points.json"):
     logger.info(f"Table points saved to {file_path}")
 
 
-def manage_point_selection(config, camera_1, camera_2):
+def manage_point_selection(camera_1):
     table_pts_cam1 = load_table_points()
 
     if table_pts_cam1 is None:
-        table_pts_cam1, table_pts_cam2 = [], []
+        table_pts_cam1 = []
         selected_cam = [1]
 
         cv2.namedWindow("Point Selection")
