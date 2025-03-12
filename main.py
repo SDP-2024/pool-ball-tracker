@@ -2,7 +2,7 @@ import cv2
 import argparse
 import time
 import logging
-import threading
+from picamera2 import Picamera2
 from imutils.video import VideoStream
 from random import randint
 
@@ -12,7 +12,6 @@ from src.processing.frame_processing import *
 from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
-from src.database.db_controller import DBController
 from src.logic.game_state import StateManager
 
 logger = logging.getLogger(__name__)
@@ -57,7 +56,7 @@ def main():
     time.sleep(2.0)
         
     # Read frames
-    frame_1 = camera_1.read()
+    frame_1 = camera_1.capture_array()
     frame_2 = camera_2.read() if camera_2 else None
 
     # Set up coordinate system for the cropped frames
@@ -87,7 +86,7 @@ def main():
     # Process the frames
     while True:
         # Read frames
-        frame_1 = camera_1.read()
+        frame_1 = camera_1.capture_array()
         frame_2 = camera_2.read() if camera_2 else None
 
         # Fix any distortion in the cameras
@@ -127,7 +126,7 @@ def main():
             break
 
     # Cleanup
-    camera_1.stop()
+    camera_1.close()
     if camera_2 is not None:
         camera_2.stop()
     cv2.destroyAllWindows()
@@ -191,7 +190,11 @@ def load_cameras(config):
     # Attempt to load cameras
     try:
         logger.info("Starting cameras...")
-        camera_1 = VideoStream(config["camera_port_1"]).start()
+        camera_1 = Picamera2()
+        cam_config = camera_1.create_preview_configuration(main={"size": (1920, 1080)})
+        camera_1.configure(cam_config)
+        camera_1.start()
+
         logger.info("Camera 1 started.")
 
         # Check if second camera enabled
@@ -208,7 +211,7 @@ def load_cameras(config):
         return
     
 def capture_frame_for_training(config, frame):
-    path=f"./{config["model_training_path"]}"
+    path=f"./{config['model_training_path']}"
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -220,7 +223,7 @@ def capture_frame_for_training(config, frame):
         logger.info(f"Image {num} saved")
 
 def capture_frame(config, frame):
-    path = f"./{config["clean_images_path"]}"
+    path = f"./{config['clean_images_path']}"
     if not os.path.exists(path):
         os.makedirs(path)
     
@@ -232,7 +235,7 @@ def capture_frame(config, frame):
         logger.info(f"Image {num} saved")
 
 def reset_ae_data(config):
-    path = f"./{config["clean_images_path"]}/"
+    path = f"./{config['clean_images_path']}/"
     if os.path.exists(path):
         for file in os.listdir(path):
             os.remove(path + file)

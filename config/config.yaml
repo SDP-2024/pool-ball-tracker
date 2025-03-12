@@ -1,75 +1,23 @@
 profiles:
   default:
-    buffer_size: 64
     calibrate_cameras: false
     calibration_folders: []
     camera_port_1: 0
     camera_port_2: -1
-    center_point_color:
-      - 0
-      - 0
-      - 255
-    center_point_radius: 5
-    circle_outline_color:
-      - 0
-      - 255
-      - 255
-    circle_thickness: 2
     font_color:
       - 255
       - 255
       - 255
     font_scale: 0.5
     font_thickness: 2
-    max_distance: 50
-    min_area: 1000
-    profile: default
-    radius: 50
-    radius_line_color:
-      - 255
-      - 0
-      - 0
-    radius_line_thickness: 2
-    table_area: 1000
-    time_between_stitch: 1.0
-    tracking_line_color:
-      - 0
-      - 0
-      - 255
-  logi_c270:
-    buffer_size: 64
-    calibrate_cameras: true
-    calibration_folders: ["/logi_c270_cam1", "/logi_c270_cam2"]
-    camera_port_1: 0
-    camera_port_2: -1
-    center_point_color:
-      - 0
-      - 0
-      - 255
-    center_point_radius: 5
-    circle_outline_color:
-      - 0
-      - 255
-      - 255
-    circle_thickness: 2
-    font_color:
-      - 255
-      - 255
-      - 255
-    font_scale: 0.5
-    font_thickness: 2
-    max_distance: 50
-    min_area: 1000
-    profile: "Logi C270"
-    radius: 50
-    radius_line_color:
-      - 255
-      - 0
-      - 0
-    radius_line_thickness: 2
-    table_area: 1000
-    time_between_stitch: 1.0
-    tracking_line_color:
-      - 0
-      - 0
-      - 255
+    use_networking: True
+    detection_model_path: "model/ball_detection_model.pt"
+    conf_threshold: 0.5
+    clean_images_path: "model/clean_images"
+    model_training_path: "model/training_images"
+    anomaly_threshold: 0.01
+    autoencoder_model_path: "model/autoencoder_model.keras"
+    network_update_interval: 2
+    position_threshold: 3
+    poolpal_url: "http://localhost:5000"
+    poolpal_subdomain: "pool-pal"
