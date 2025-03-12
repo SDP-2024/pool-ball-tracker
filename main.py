@@ -109,7 +109,8 @@ def main():
 
         # Detect and draw balls to frame
         detected_balls, labels = detection_model.detect(stitched_frame)
-        detection_model.draw(drawing_frame, detected_balls)
+        if not args.no_draw:
+            detection_model.draw(drawing_frame, detected_balls)
 
         state_manager.update(detected_balls, labels)
         
@@ -180,6 +181,12 @@ def parse_args():
 
     parser.add_argument(
         "--debug",
+        action="store_true",
+        default=False
+    )
+
+    parser.add_argument(
+        "--no-draw",
         action="store_true",
         default=False
     )
