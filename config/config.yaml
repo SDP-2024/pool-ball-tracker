@@ -3,7 +3,6 @@ profiles:
     calibrate_cameras: false
     calibration_folders: []
     camera_port_1: 0
-    camera_port_2: -1
     font_color:
       - 255
       - 255

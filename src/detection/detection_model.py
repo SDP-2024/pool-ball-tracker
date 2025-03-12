@@ -25,11 +25,30 @@ class DetectionModel:
 
 
     def load_model(self):
-        # Load model if present
-        if (not os.path.exists(self.model_path)):
-            return None
+        """Loads an NCNN model if it exists; otherwise, exports from the .pt model."""
+        
+        # Paths for NCNN model files
+        ncnn_base_path = self.model_path + "_ncnn"
+        ncnn_param = ncnn_base_path + ".param"
+        ncnn_bin = ncnn_base_path + ".bin"
+
+        # Check if the NCNN model already exists
+        if os.path.exists(ncnn_param) and os.path.exists(ncnn_bin):
+            print(f"Loading existing NCNN model from {ncnn_base_path}")
+            return YOLO(ncnn_base_path)  # Load NCNN model
+
+        # If NCNN model does not exist, check for the .pt file
+        elif os.path.exists(self.model_path):
+            print(f"NCNN model not found. Exporting from {self.model_path}...")
+            model = YOLO(self.model_path)  # Load PyTorch model
+            model.export(format="ncnn")  # Export to NCNN
+            return YOLO(ncnn_base_path)  # Load newly exported NCNN model
+
+        # If neither exists, return None
         else:
-            return YOLO(self.model_path, task='detect')
+            print("Error: No model found to load or export.")
+            return None
+
         
 
     def detect(self, frame):
