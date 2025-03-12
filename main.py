@@ -12,7 +12,6 @@ from src.processing.frame_processing import *
 from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
-from src.database.db_controller import DBController
 from src.logic.game_state import StateManager
 
 logger = logging.getLogger(__name__)
