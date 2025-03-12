@@ -11,9 +11,6 @@ class DetectionModel:
     def __init__(self, config):
         """
         Initializes the DetectionModel with the given configuration.
-
-        Args:
-            config (dict): Configuration dictionary containing model path, confidence threshold, font scale, and font thickness.
         """
         self.config = config
         self.model_path = config["detection_model_path"]
@@ -25,7 +22,10 @@ class DetectionModel:
 
 
     def load_model(self):
-        """Loads an NCNN model if it exists; otherwise, exports from the .pt model."""
+        """
+        Loads an NCNN version of the trained model if it exists, otherwise creates one.
+        NCNN models are optimised for raspberry pi.
+        """
         
         # Paths for NCNN model files
         ncnn_base_path = self.model_path + "_ncnn"
@@ -34,19 +34,19 @@ class DetectionModel:
 
         # Check if the NCNN model already exists
         if os.path.exists(ncnn_param) and os.path.exists(ncnn_bin):
-            print(f"Loading existing NCNN model from {ncnn_base_path}")
+            logger.info(f"Loading existing NCNN model from {ncnn_base_path}")
             return YOLO(ncnn_base_path)  # Load NCNN model
 
         # If NCNN model does not exist, check for the .pt file
         elif os.path.exists(self.model_path):
-            print(f"NCNN model not found. Exporting from {self.model_path}...")
+            logger.info(f"NCNN model not found. Exporting from {self.model_path}...")
             model = YOLO(self.model_path)  # Load PyTorch model
             model.export(format="ncnn")  # Export to NCNN
             return YOLO(ncnn_base_path)  # Load newly exported NCNN model
 
         # If neither exists, return None
         else:
-            print("Error: No model found to load or export.")
+            logger.error("Error: No model found to load or export.")
             return None
 
         
@@ -104,6 +104,7 @@ class DetectionModel:
     def draw(self, frame, detected_balls):
         """
         Draw bounding boxes and labels on the frame for detected objects.
+        This can be disabled with the --no-draw flag on startup.
 
         Args:
             frame (numpy.ndarray): The input image frame on which to draw.
@@ -136,6 +137,7 @@ class DetectionModel:
     def extract_bounding_boxes(self, frame, balls):
         """
         Extract bounding boxes from the detected balls and create a mask for anomaly detection.
+        This can be disabled with the --no-anomaly flag on startup.
 
         Args:
             frame (numpy.ndarray): The input image frame from which to extract bounding boxes.

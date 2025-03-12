@@ -23,6 +23,9 @@ class Network:
             self.reconnect()
 
     def reconnect(self):
+        """
+        Attempt to reconnect to server in the case of a disconnection
+        """
         while True:
             try:
                 logger.info("Attempting to reconnect...")
@@ -33,6 +36,9 @@ class Network:
                 time.sleep(3)
 
     def connect(self):
+        """
+        Connect to the server on startup
+        """
         try:
             self.sio.connect(self.config["poolpal_url"], wait=False)
         except Exception as e:
@@ -40,6 +46,9 @@ class Network:
             self.reconnect()
 
     def send_balls(self, balls):
+        """
+        Sends the current state of the game to the pub/sub server
+        """
         try:
             logger.info("Sending balls: %s", balls)
             self.sio.emit("ballPositions", balls)
@@ -52,6 +61,9 @@ class Network:
             pass
 
     def send_obstruction(self, obstruction_detected):
+        """
+        Sends if an obstruction has been detected to the pub/sub server
+        """
         try:
             self.sio.emit("obstructionDetected", obstruction_detected)
             self.disconnect_counter = 0

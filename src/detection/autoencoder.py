@@ -11,11 +11,18 @@ logger = logging.getLogger(__name__)
 
 
 class AutoEncoder:
+    """
+    In charge of checking if there are obstructions on the table
+    """
     def __init__(self, config):
         self.config = config
         self.autoencoder = self.build_autoencoder()
 
     def build_autoencoder(self):
+        """
+        Builds an autoencoder with the saved images if one does not exist.
+        If one exists, then load it.
+        """
         model_path = self.config.get("autoencoder_model_path", "model/autoencoder_model.keras")
 
         if os.path.exists(model_path):
@@ -58,7 +65,9 @@ class AutoEncoder:
 
     
     def load_images(self, folder_path):
-        """Load and preprocess images from a given folder."""
+        """
+        Load and preprocess images from a given folder.
+        """
         images = []
         for filename in os.listdir(folder_path):
             if filename.lower().endswith((".jpg", ".png")):
@@ -82,13 +91,15 @@ class AutoEncoder:
 
 
     def detect_anomaly(self, table_only):
-        """Detect anomalies by comparing reconstruction errors."""
+        """
+        Detect anomalies by comparing reconstruction errors.
+        """
         if self.autoencoder is None:
             logger.error("Autoencoder model is not loaded or trained.")
             return False
 
         anomaly = cv2.resize(table_only, (128, 128)) / 255.0
-        anomaly = np.expand_dims(anomaly, axis=0)  # Ensure shape (1, 128, 128, 3)
+        anomaly = np.expand_dims(anomaly, axis=0)
 
         reconstructed = self.autoencoder.predict(anomaly, verbose=0)
         mse = np.mean(np.square(anomaly - reconstructed))  # Compute Mean Squared Error

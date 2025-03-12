@@ -4,6 +4,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class StateManager:
+    """
+    Manages current state of the game, sending current positions if required
+    """
     def __init__(self, config, network=None):
         self.config = config
         self.previous_state = None
@@ -13,6 +16,11 @@ class StateManager:
 
     # TODO: Handle balls that are missed for a few frames by detection
     def update(self, data, labels):
+        """
+        Updates current state of the table.
+        Extracts required information and decides if the new data should be sent.
+        If the balls have not moved, then don't send anything.
+        """
         current_time = time.time()
         if current_time - self.time_since_last_update < self.time_between_updates:
             logger.debug("Skipping update: Too soon since last update.")
@@ -50,7 +58,7 @@ class StateManager:
                         not_moved_counter += 1
                         prev_ball["x"] = middlex
                         prev_ball["y"] = middley
-                        break  # Match found
+                        break 
 
             if classname not in balls:
                 balls[classname] = []
