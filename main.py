@@ -190,7 +190,8 @@ def load_cameras(config):
     # Attempt to load cameras
     try:
         logger.info("Starting cameras...")
-        camera_1 = VideoStream(config["camera_port_1"]).start()
+        #camera_1 = VideoStream(config["camera_port_1"]).start()
+        camera_1 = VideoStream("http://192.168.137.191:5000/video_feed").start()
         logger.info("Camera 1 started.")
 
         # Check if second camera enabled
