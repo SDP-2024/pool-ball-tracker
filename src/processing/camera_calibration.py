@@ -119,13 +119,12 @@ def undistort_cameras(config, frame_1, mtx_1, dst_1):
     return frame_1
 
 
-def select_points(event, x, y, param):
-    table_pts_cam1, selected_cam = param
+def select_points(event, x, y, flags, param):
+    table_pts_cam1 = param  # Get the list from param
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        if selected_cam[0] == 1:
-            table_pts_cam1.append((x, y))
-        logger.info(f"Point selected: {(x, y)} for Camera {selected_cam[0]}")
+        table_pts_cam1.append((x, y))
+        logger.info(f"Point selected: {(x, y)}")
 
         if len(table_pts_cam1) == 4:
             logger.info("All points selected!")
@@ -164,10 +163,9 @@ def manage_point_selection(camera_1):
 
     if table_pts_cam1 is None:
         table_pts_cam1 = []
-        selected_cam = [1]
 
         cv2.namedWindow("Point Selection")
-        cv2.setMouseCallback("Point Selection", select_points, param=(table_pts_cam1, selected_cam))
+        cv2.setMouseCallback("Point Selection", select_points, param=table_pts_cam1)
 
         logger.info("Select 4 points for Camera (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
 
@@ -175,8 +173,7 @@ def manage_point_selection(camera_1):
             frame_1 = camera_1.capture_array()
             if frame_1 is None:
                 logger.error("Failed to grab frame from Camera 1")
-                return None, None
-            
+                return None
 
             display_frame = frame_1.copy()
 
@@ -184,9 +181,10 @@ def manage_point_selection(camera_1):
                 cv2.circle(display_frame, pt, 5, (0, 0, 255), -1)
 
             cv2.imshow("Point Selection", display_frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
                 logger.info("Point selection aborted by user.")
-                break
+                return None
 
         save_table_points(table_pts_cam1)
         cv2.destroyWindow("Point Selection")
