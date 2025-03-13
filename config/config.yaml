@@ -9,7 +9,7 @@ profiles:
       - 255
     font_scale: 0.5
     font_thickness: 2
-    use_networking: True
+    use_networking: False
     detection_model_path: "model/ball_detection_model.pt"
     conf_threshold: 0.5
     clean_images_path: "model/clean_images"
@@ -18,5 +18,5 @@ profiles:
     autoencoder_model_path: "model/autoencoder_model.keras"
     network_update_interval: 2
     position_threshold: 3
-    poolpal_url: "http://localhost:5000"
+    poolpal_url: "https://pool-pal.serveo.net"
     poolpal_subdomain: "pool-pal"
