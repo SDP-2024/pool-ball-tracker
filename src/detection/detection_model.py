@@ -28,9 +28,12 @@ class DetectionModel:
         """
         
         # Paths for NCNN model files
-        ncnn_base_path = self.model_path + "_ncnn_model"
+        ncnn_base_path = self.model_path + "_ncnn_model/"
         ncnn_param = ncnn_base_path + ".param"
         ncnn_bin = ncnn_base_path + ".bin"
+
+        logger.info(ncnn_bin)
+        logger.info(ncnn_param)
 
         # Check if the NCNN model already exists
         if os.path.exists(ncnn_param) and os.path.exists(ncnn_bin):
