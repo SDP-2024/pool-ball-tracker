@@ -28,9 +28,9 @@ class DetectionModel:
         """
         
         # Paths for NCNN model files
-        ncnn_base_path = self.model_path + "_ncnn_model/"
-        ncnn_param = ncnn_base_path + ".param"
-        ncnn_bin = ncnn_base_path + ".bin"
+        ncnn_base_path =  "model/ball_detection_model_ncnn_model/"
+        ncnn_param = ncnn_base_path + "model.ncnn.param"
+        ncnn_bin = ncnn_base_path + "model.ncnn.bin"
 
         logger.info(ncnn_bin)
         logger.info(ncnn_param)
