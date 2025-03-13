@@ -53,7 +53,7 @@ def main():
     
     # Calibrate cameras
     mtx_1, dst_1 = handle_calibration(config)
-    camera_1 = load_cameras(config)
+    camera_1 = load_cameras()
     table_pts_cam1 = manage_point_selection(camera_1)
     # Allow cameras to warm up
     time.sleep(2.0)
