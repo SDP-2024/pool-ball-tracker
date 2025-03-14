@@ -1,8 +1,8 @@
 profiles:
   default:
     calibrate_cameras: false
-    calibration_folders: []
-    camera_port_1: 0
+    calibration_folders: ["./config/calibration/wide_angle_cam"]
+    camera_port_1: 1
     camera_port_2: -1
     font_color:
       - 255
@@ -19,5 +19,5 @@ profiles:
     autoencoder_model_path: "model/autoencoder_model.keras"
     network_update_interval: 0.4
     position_threshold: 3
-    poolpal_url: "http://localhost:5000"
+    poolpal_url: "https://pool-pal.serveo.net"
     poolpal_subdomain: "pool-pal"
