@@ -42,10 +42,10 @@ python main.py
 Modify `config.yaml` to adjust settings such as:
 
 - Camera ports
-- Network ports
-- Size parameters
-- Color parameters
-- File paths
+- Confidence threshold
+- Position threshold
+- Update interval
+- Use networking
 
 **Important settings**
 
@@ -62,6 +62,15 @@ Optionally create a new configuration profile with:
 python main.py --create-profile [name]
 ```
 
+### **Running with arguments**
+
+There are optional arguments for running the program.
+
+- `--set-points` - Set points for two cameras to crop
+- `--no-anomaly` - Disable autoencoder for anomaly detection
+- `--collect-model-images` - Collect images when holding `s` for use in model training.
+- `--collect-ae-data` - Collect images when holding `s` for use in the autoencoder.
+
 ### **Running with Custom Config**
 
 To test with a different config profile:
@@ -70,6 +79,6 @@ To test with a different config profile:
 python main.py --profile [name]
 ```
 
-## **📜 License**
+## **License**
 
 This project is licensed under the **MIT License**.
