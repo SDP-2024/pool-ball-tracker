@@ -207,7 +207,7 @@ def load_cameras(config):
         return
     
 def capture_frame_for_training(config, frame):
-    path=f"./{config["model_training_path"]}"
+    path=f"./{config['model_training_path']}"
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -219,7 +219,7 @@ def capture_frame_for_training(config, frame):
         logger.info(f"Image {num} saved")
 
 def capture_frame(config, frame):
-    path = f"./{config["clean_images_path"]}"
+    path = f"./{config['clean_images_path']}"
     if not os.path.exists(path):
         os.makedirs(path)
     
@@ -231,7 +231,7 @@ def capture_frame(config, frame):
         logger.info(f"Image {num} saved")
 
 def reset_ae_data(config):
-    path = f"./{config["clean_images_path"]}/"
+    path = f"./{config['clean_images_path']}/"
     if os.path.exists(path):
         for file in os.listdir(path):
             os.remove(path + file)
