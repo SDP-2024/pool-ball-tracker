@@ -203,9 +203,9 @@ config/table_points.json
 config/hsv_adjuster.py
 
 model/clean_images
-model/autoencoder_model.keras
 src/database/serviceAccountKey.json
 model/training_images
 model/train
 model/model.zip
 model/old_model.pt
+config/calibration/*
