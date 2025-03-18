@@ -38,8 +38,8 @@ class StateManager:
 
             num_balls += 1
 
-            middley = int((xmin + xmax) // 2)
-            middlex = int((ymin + ymax) // 2)
+            middlex = int((xmin + xmax) // 2)
+            middley = int((ymin + ymax) // 2)
 
             # Check if this ball is close to a previous position
             if self.previous_state and classname in self.previous_state:
