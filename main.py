@@ -49,7 +49,7 @@ def main():
         reset_points()
     
     # Calibrate cameras
-    mtx, dst, new_mtx, roi = handle_calibration(config)
+    mtx, dst = handle_calibration(config)
     camera = load_cameras(config)
 
     # Allow cameras to warm up
@@ -92,10 +92,10 @@ def main():
             continue 
 
         # Get top-down view of the table
+        frame = undistort_camera(config, frame, mtx, dst)
         frame = get_top_down_view(frame, table_pts)
-        # TODO: Take checkerboard pattern images from top-down view for camera calibration
+        
         # Fix any distortion in the camera, after getting top down view
-        frame = undistort_cameras(config, frame, mtx, dst, new_mtx, roi)
 
         if args.collect_ae_data: # Collect data for autoencoder
             capture_frame(config, frame)

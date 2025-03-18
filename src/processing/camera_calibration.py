@@ -7,11 +7,6 @@ import json
 
 logger = logging.getLogger(__name__)
 
-import cv2
-import numpy as np
-import glob
-import os
-
 def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
     """
     Calibrates a wide-angle camera using a set of chessboard images.
@@ -25,8 +20,6 @@ def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
         tuple: A tuple containing:
             - mtx (np.ndarray): The camera matrix.
             - dist (np.ndarray): The distortion coefficients.
-            - new_mtx (np.ndarray): The optimized camera matrix.
-            - roi (tuple): The region of interest (crop values).
     """
 
     objpoints = []  # 3D points in real-world space
@@ -66,10 +59,17 @@ def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
     # Calibrate camera using standard distortion model (5 parameters)
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (w, h), None, None)
 
-    # Optimize the camera matrix to reduce distortion while preserving the field of view
-    new_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+    # Compute reprojection error, good: < 0.5 pixels, bad: > 1 pixel
+    total_error = 0
+    for i in range(len(objpoints)):
+        projected_points, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+        error = cv2.norm(imgpoints[i], projected_points, cv2.NORM_L2) / len(projected_points)
+        total_error += error
 
-    return mtx, dist, new_mtx, roi
+    reprojection_error = total_error / len(objpoints)
+    logger.info(f"Reprojection Error: {reprojection_error:.4f}")
+
+    return mtx, dist
 
 
 
@@ -86,25 +86,25 @@ def handle_calibration(config):
                (mtx, dst, new_mtx, roi)
     """
 
-    mtx, dst, new_mtx, roi = None, None, None, None
-    if not config.get("calibrate_cameras", False):
-        return mtx, dst, new_mtx, roi
-    calibration_folders = config.get("calibration_folders", [])
-    if len(calibration_folders) < 1:
-        logger.error("No calibration folders supplied. Please check config.yaml.")
-        return mtx, dst, new_mtx, roi
+    mtx, dst = None, None
+    if not config.get("calibrate_camera", False):
+        return mtx, dst
+    calibration_folder = config.get("calibration_folder", [])
+    if len(calibration_folder) < 1:
+        logger.error("No calibration folder supplied. Please check config.yaml.")
+        return mtx, dst
     
-    def calibrate_and_log(camera_index, folder):
+    def calibrate_and_log(folder):
         folder_path = os.path.abspath(folder)
-        logger.info(f"Calibrating camera {camera_index} using {folder_path}")
+        logger.info(f"Calibrating camera using {folder_path}")
         return calibrate_camera(folder_path)
 
-    mtx, dst, new_mtx, roi = calibrate_and_log(1, calibration_folders[0])
-    return mtx, dst, new_mtx, roi
+    mtx, dst = calibrate_and_log(calibration_folder[0])
+    return mtx, dst
 
 
 
-def undistort_cameras(config, frame, mtx, dst, new_mtx, roi):
+def undistort_camera(config, frame, mtx, dst):
     """
     Undistorts the input frames using the camera calibration parameters.
 
@@ -113,27 +113,23 @@ def undistort_cameras(config, frame, mtx, dst, new_mtx, roi):
         frame (numpy.ndarray): The frame from the camera.
         mtx (numpy.ndarray): Original camera matrix.
         dst (numpy.ndarray): Distortion coefficients.
-        new_mtx (numpy.ndarray): Optimized camera matrix.
-        roi (tuple): Region of interest.
 
     Returns:
         numpy.ndarray: The undistorted frame.
     """
     
-    def undistort_frame(frame, mtx, dst, new_mtx, roi):
+    def undistort_frame(frame, mtx, dst):
         if frame is None or mtx is None or dst is None:
             return frame
         h, w = frame.shape[:2]
-        undistorted_frame = cv2.undistort(frame, mtx, dst, None, new_mtx)
-        x, y, w, h = roi
-        undistorted_frame = undistorted_frame[y:y+h, x:x+w]
+        undistorted_frame = cv2.undistort(frame, mtx, dst)
         # Resize back to original dimensions to maintain consistency
         undistorted_frame = cv2.resize(undistorted_frame, (w, h))
 
         return undistorted_frame
 
-    if config.get("calibrate_cameras", False):
-        frame = undistort_frame(frame, mtx, dst, new_mtx, roi)
+    if config.get("calibrate_camera", False):
+        frame = undistort_frame(frame, mtx, dst)
 
     return frame
 

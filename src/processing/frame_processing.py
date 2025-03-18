@@ -6,8 +6,8 @@ import random
 logger = logging.getLogger(__name__)
 
 def get_top_down_view(frame, table_pts):
-    output_height = 1200  # Height of each warped image
-    output_width = 600  # Width of each warped image
+    output_height = 600  # Height of each warped image
+    output_width = 1200  # Width of each warped image
 
     table_rect = np.float32([
         [0, 0], 
