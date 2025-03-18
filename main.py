@@ -49,7 +49,7 @@ def main():
         reset_points()
     
     # Calibrate cameras
-    mtx, dst = handle_calibration(config)
+    mtx, dst, new_mtx, roi = handle_calibration(config)
     camera = load_cameras(config)
 
     # Allow cameras to warm up
@@ -59,7 +59,7 @@ def main():
     frame = camera.read()
 
     # Set up coordinate system for the cropped frames
-    table_pts, table_pts_cam2 = manage_point_selection(config, camera, mtx, dst)
+    table_pts = manage_point_selection(config, camera, mtx, dst)
     stitched_frame = get_top_down_view(frame,table_pts)
     logger.info(stitched_frame.shape)
 
@@ -87,7 +87,7 @@ def main():
         frame = camera.read()
 
         # Fix any distortion in the cameras
-        frame = undistort_cameras(config, frame, mtx, dst)
+        frame = undistort_cameras(config, frame, mtx, dst, new_mtx, roi)
 
         if frame is None:
             logger.error("Camera frame is invalid.")

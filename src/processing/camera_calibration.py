@@ -7,54 +7,70 @@ import json
 
 logger = logging.getLogger(__name__)
 
-def calibrate_camera(path, chessboard_size=(8, 5)):
+import cv2
+import numpy as np
+import glob
+import os
+
+def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
     """
-    Calibrates a camera using a set of images of a chessboard pattern.
+    Calibrates a wide-angle camera using a set of chessboard images.
 
     Args:
         path (str): Path to the images used for calibration.
-        chessboard_size (tuple, optional): The number of internal corners in the chessboard pattern 
-                                           as (columns, rows). Defaults to (8, 5).
+        chessboard_size (tuple): The number of internal corners in the chessboard pattern (columns, rows).
+        square_size (float): Real-world size of a square on the chessboard (optional, default is 1.0).
 
     Returns:
         tuple: A tuple containing:
             - mtx (np.ndarray): The camera matrix.
             - dist (np.ndarray): The distortion coefficients.
+            - new_mtx (np.ndarray): The optimized camera matrix.
+            - roi (tuple): The region of interest (crop values).
     """
-    
-    obj_points = []  # 3D points in real-world space
-    img_points = []  # 2D points in image plane
 
-    # Prepare a grid of points for the chessboard pattern
+    objpoints = []  # 3D points in real-world space
+    imgpoints = []  # 2D points in image plane
+
+    # Prepare object points (chessboard pattern in real-world space)
     objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
-    objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2)
+    objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2) * square_size
 
-    # Get all image files
     images = glob.glob(os.path.join(path, "*.jpg"))
     if not images:
         raise FileNotFoundError(f"No images found in {path}")
 
     for img_path in images:
-        img = cv2.imread(img_path)  # Read the image
+        img = cv2.imread(img_path)
         if img is None:
-            logger.error(f"Could not read {img_path}")
-            continue  # Skip unreadable images
+            print(f"Could not read {img_path}")
+            continue
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Find chessboard corners
         ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
 
         if ret:
-            img_points.append(corners)
-            obj_points.append(objp)
+            refined_corners = cv2.cornerSubPix(gray, corners, (3, 3), (-1, -1),
+                                               (cv2.TERM_CRITERIA_EPS +
+                                                cv2.TERM_CRITERIA_MAX_ITER, 30, 0.1))
+            imgpoints.append(refined_corners)
+            objpoints.append(objp)
 
-    # Ensure calibration data exists
-    if not obj_points or not img_points:
-        raise ValueError("No chessboard corners found in any image. Check the images or chessboard size.")
+    if not objpoints or not imgpoints:
+        raise ValueError("No valid chessboard corners found. Check images or chessboard size.")
 
-    # Calibrate the camera
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, gray.shape[::-1], None, None)
+    h, w = gray.shape[:2]
 
-    return mtx, dist
+    # Calibrate camera using standard distortion model (5 parameters)
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (w, h), None, None)
+
+    # Optimize the camera matrix to reduce distortion while preserving the field of view
+    new_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+
+    return mtx, dist, new_mtx, roi
+
 
 
 
@@ -63,60 +79,61 @@ def handle_calibration(config):
     Handles the calibration of the cameras.
 
     Args:
-        config (dict): Configuration dictionary containing calibration parameters,
-                       including "calibrate_cameras" and "calibration_folders".
+        config (dict): Configuration dictionary containing calibration parameters.
 
     Returns:
-        tuple: Contains the camera matrices and distortion coefficients for both cameras.
-               (mtx, dst)
+        tuple: Contains the camera matrices, distortion coefficients, optimized matrices, and ROI.
+               (mtx, dst, new_mtx, roi)
     """
 
-    mtx, dst = None, None
-    
+    mtx, dst, new_mtx, roi = None, None, None, None
     if not config.get("calibrate_cameras", False):
-        return mtx, dst
-
+        return mtx, dst, new_mtx, roi
     calibration_folders = config.get("calibration_folders", [])
     if len(calibration_folders) < 1:
         logger.error("No calibration folders supplied. Please check config.yaml.")
-        return mtx, dst
-    
+        return mtx, dst, new_mtx, roi
     
     def calibrate_and_log(camera_index, folder):
         folder_path = os.path.abspath(folder)
-        logger.info(f"Calibrating camera {camera_index}")
+        logger.info(f"Calibrating camera {camera_index} using {folder_path}")
         return calibrate_camera(folder_path)
 
-    mtx, dst = calibrate_and_log(1, calibration_folders[0])
-
-    return mtx, dst
-
+    mtx, dst, new_mtx, roi = calibrate_and_log(1, calibration_folders[0])
+    return mtx, dst, new_mtx, roi
 
 
-def undistort_cameras(config, frame, mtx, dst):
+
+def undistort_cameras(config, frame, mtx, dst, new_mtx, roi):
     """
     Undistorts the input frames using the camera calibration parameters.
 
     Args:
         config (dict): Configuration dictionary containing calibration settings.
-        frame (numpy.ndarray): The frame from camera.
-        mtx (numpy.ndarray): Camera matrix for camera.
-        dst (numpy.ndarray): Distortion coefficients for camera.
+        frame (numpy.ndarray): The frame from the camera.
+        mtx (numpy.ndarray): Original camera matrix.
+        dst (numpy.ndarray): Distortion coefficients.
+        new_mtx (numpy.ndarray): Optimized camera matrix.
+        roi (tuple): Region of interest.
 
     Returns:
-        tuple: The undistorted frames.
+        numpy.ndarray: The undistorted frame.
     """
-    def undistort_frame(frame, mtx, dst):
+    
+    def undistort_frame(frame, mtx, dst, new_mtx, roi):
         if frame is None or mtx is None or dst is None:
             return frame
         h, w = frame.shape[:2]
-        new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dst, (w, h), 1, (w, h))
-        undistorted_frame = cv2.undistort(frame, mtx, dst, None, new_camera_mtx)
+        undistorted_frame = cv2.undistort(frame, mtx, dst, None, new_mtx)
         x, y, w, h = roi
-        return undistorted_frame[y:y+h, x:x+w]
+        undistorted_frame = undistorted_frame[y:y+h, x:x+w]
+        # Resize back to original dimensions to maintain consistency
+        undistorted_frame = cv2.resize(undistorted_frame, (w, h))
+
+        return undistorted_frame
 
     if config.get("calibrate_cameras", False):
-        frame = undistort_frame(frame, mtx, dst)
+        frame = undistort_frame(frame, mtx, dst, new_mtx, roi)
 
     return frame
 
