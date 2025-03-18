@@ -10,6 +10,7 @@ class StateManager:
         self.network = network
         self.time_between_updates = self.config["network_update_interval"]
         self.time_since_last_update = time.time() - self.time_between_updates
+        self.end_of_turn = False
 
     # TODO: Handle balls that are missed for a few frames by detection
     def update(self, data, labels):
@@ -60,14 +61,18 @@ class StateManager:
         if not_moved_counter == num_balls:
             logger.debug("No significant ball movement detected. Skipping state update.")
             self.previous_state = balls
+            # If balls stopped moving detected, end the turn. Only send once
+            if not self.end_of_turn:
+                self.end_of_turn = True
+                if self.network:
+                    self.network.send_end_of_turn(True)
             return
 
         # Update the socket with the new state
         if balls:
             self.previous_state = balls
             self.time_since_last_update = current_time
+            self.end_of_turn = False
 
             if self.network:
                 self.network.send_balls({"balls": balls})
-            else:
-                logger.warning("Network is not initialized. Cannot send ball positions.")
