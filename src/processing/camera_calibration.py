@@ -121,10 +121,7 @@ def undistort_camera(config, frame, mtx, dst):
     def undistort_frame(frame, mtx, dst):
         if frame is None or mtx is None or dst is None:
             return frame
-        h, w = frame.shape[:2]
         undistorted_frame = cv2.undistort(frame, mtx, dst)
-        # Resize back to original dimensions to maintain consistency
-        undistorted_frame = cv2.resize(undistorted_frame, (w, h))
 
         return undistorted_frame
 

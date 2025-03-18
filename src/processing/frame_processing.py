@@ -6,8 +6,8 @@ import random
 logger = logging.getLogger(__name__)
 
 def get_top_down_view(frame, table_pts):
-    output_height = 600  # Height of each warped image
-    output_width = 1200  # Width of each warped image
+    output_height = 600
+    output_width = 1200
 
     table_rect = np.float32([
         [0, 0], 
@@ -17,10 +17,10 @@ def get_top_down_view(frame, table_pts):
     ])
 
     # Compute homography matrices
-    H1, _ = cv2.findHomography(table_pts, table_rect)
+    M = cv2.getPerspectiveTransform(table_pts,table_rect)
 
     # Warp the frames
-    top_down_view = cv2.warpPerspective(frame, H1, (output_width, output_height))
+    top_down_view = cv2.warpPerspective(frame, M, (output_width, output_height), borderMode=cv2.BORDER_REPLICATE)
 
     return top_down_view
 

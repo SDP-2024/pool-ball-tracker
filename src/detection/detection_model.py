@@ -22,7 +22,7 @@ class DetectionModel:
         self.bbox_colors = [(255,0,0), (0,0,0), (0,0,255), (255,255,255), (255,255,0)]
         self.count = 0
         self.track_history = defaultdict(lambda: [])
-        self.draw_window = cv2.namedWindow("Detection", cv2.WINDOW_NORMAL)
+        #self.draw_window = cv2.namedWindow("Detection", cv2.WINDOW_NORMAL)
 
 
     def load_model(self):
@@ -80,7 +80,7 @@ class DetectionModel:
         filtered_results = results[0]
         filtered_results.boxes = filtered_boxes
         
-        return (filtered_results,), self.labels
+        return filtered_results, self.labels
     
 
     def draw(self, frame, detected_balls):
