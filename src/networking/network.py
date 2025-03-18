@@ -51,6 +51,17 @@ class Network:
                 self.reconnect()
             pass
 
+    def send_end_of_turn(self, end_of_turn):
+        try:
+            self.info("Sending end of turn: %s", end_of_turn)
+            self.sio.emit("endOfTurn", end_of_turn)
+            self.disconnect_counter = 0
+        except Exception as e:
+            self.disconnect_counter += 1
+            logger.error("Failed to send endOfTurn")
+            if self.disconnect_counter >= 10:
+                self.reconnect()
+
     def send_obstruction(self, obstruction_detected):
         try:
             self.sio.emit("obstructionDetected", obstruction_detected)
