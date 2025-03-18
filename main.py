@@ -59,7 +59,7 @@ def main():
     frame = camera.read()
 
     # Set up coordinate system for the cropped frames
-    table_pts = manage_point_selection(camera)
+    table_pts = manage_point_selection(config, camera, mtx, dst)
     frame = get_top_down_view(frame,table_pts)
     logger.info(frame.shape)
 

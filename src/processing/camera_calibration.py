@@ -7,7 +7,7 @@ import json
 
 logger = logging.getLogger(__name__)
 
-def calibrate_camera(path, chessboard_size=(8, 5), square_size=2.9):
+def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
     """
     Calibrates a wide-angle camera using a set of chessboard images.
 
@@ -26,14 +26,19 @@ def calibrate_camera(path, chessboard_size=(8, 5), square_size=2.9):
     imgpoints = []  # 2D points in image plane
 
     # Prepare object points (chessboard pattern in real-world space)
-    objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
+    objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), dtype=np.float32)
     objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2) * square_size
+
+    # Ensure the shape is (num_corners, 1, 3)
+    objp = objp.reshape(-1, 1, 3).astype(np.float32)
+
 
     images = glob.glob(os.path.join(path, "*.jpg"))
     if not images:
         raise FileNotFoundError(f"No images found in {path}")
 
     for img_path in images:
+        logging.info(f"Processing {img_path}")
         img = cv2.imread(img_path)
         if img is None:
             print(f"Could not read {img_path}")
@@ -46,32 +51,38 @@ def calibrate_camera(path, chessboard_size=(8, 5), square_size=2.9):
 
         if ret:
             refined_corners = cv2.cornerSubPix(gray, corners, (3, 3), (-1, -1),
-                                               (cv2.TERM_CRITERIA_EPS +
+                                            (cv2.TERM_CRITERIA_EPS +
                                                 cv2.TERM_CRITERIA_MAX_ITER, 30, 0.1))
-            imgpoints.append(refined_corners)
-            objpoints.append(objp)
+            imgpoints.append(refined_corners.reshape(-1, 1, 2).astype(np.float32))  # Fix shape
+            objpoints.append(objp.copy())
 
     if not objpoints or not imgpoints:
         raise ValueError("No valid chessboard corners found. Check images or chessboard size.")
 
     h, w = gray.shape[:2]
-    mtx = np.eye(3, dtype=np.float32)
-    dist = np.zeros((4, 1), dtype=np.float32)
+    # Initialize camera matrix and distortion coefficients
+    K = np.eye(3, dtype=np.float32)
+    D = np.zeros((4, 1), dtype=np.float32)
 
-    # Calibrate camera using standard distortion model (5 parameters)
-    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, (w, h), None, None)
+    # Fisheye calibration
+    ret, K, D, rvecs, tvecs = cv2.fisheye.calibrate(
+        objpoints, imgpoints, (w, h), K, D,
+        flags=(cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC |
+               cv2.fisheye.CALIB_FIX_SKEW |
+               cv2.fisheye.CALIB_CHECK_COND)
+    )
 
-    # Compute reprojection error, good: < 0.5 pixels, bad: > 1 pixel
+    # Compute reprojection error
     total_error = 0
     for i in range(len(objpoints)):
-        projected_points, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+        projected_points, _ = cv2.fisheye.projectPoints(objpoints[i], rvecs[i], tvecs[i], K, D)
         error = cv2.norm(imgpoints[i], projected_points, cv2.NORM_L2) / len(projected_points)
         total_error += error
 
     reprojection_error = total_error / len(objpoints)
     logger.info(f"Reprojection Error: {reprojection_error:.4f}")
 
-    return mtx, dist
+    return K, D
 
 
 
@@ -119,18 +130,24 @@ def undistort_camera(config, frame, mtx, dst):
     Returns:
         numpy.ndarray: The undistorted frame.
     """
-    
-    def undistort_frame(frame, mtx, dst):
-        if frame is None or mtx is None or dst is None:
-            return frame
-        undistorted_frame = cv2.fisheye.undistortImage(frame, mtx, dst)
+    if frame is None or mtx is None or dst is None:
+        return frame
 
-        return undistorted_frame
+    h, w = frame.shape[:2]
 
-    if config.get("calibrate_camera", False):
-        frame = undistort_frame(frame, mtx, dst)
+    # Compute the optimal new camera matrix
+    new_mtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+        mtx, dst, (w, h), np.eye(3), balance=1
+    )
 
-    return frame
+    # Compute undistortion maps
+    map1, map2 = cv2.fisheye.initUndistortRectifyMap(mtx, dst, np.eye(3), new_mtx, (w, h), cv2.CV_16SC2)
+
+    # Apply remapping for undistortion
+    undistorted_frame = cv2.remap(frame, map1, map2, interpolation=cv2.INTER_LINEAR)
+
+    return undistorted_frame
+
 
 
 def select_points(event, x, y, flags, param):
@@ -173,7 +190,7 @@ def save_table_points(table_pts, file_path="config/table_points.json"):
     logger.info(f"Table points saved to {file_path}")
 
 
-def manage_point_selection(camera):
+def manage_point_selection(config, camera, mtx, dst):
     table_pts = load_table_points()
 
     if table_pts is None:
@@ -186,6 +203,7 @@ def manage_point_selection(camera):
 
         while len(table_pts) < 4:
             frame = camera.read()
+            frame = undistort_camera(config, frame, mtx, dst)
             if frame is None:
                 logger.error("Failed to grab frame from Camera")
                 return None

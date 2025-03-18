@@ -50,6 +50,9 @@ class DetectionModel:
         ball_counts = defaultdict(int)
         filtered_boxes = []
         all_balls = []
+        
+        if results is None or len(results) == 0 or results[0].boxes is None:
+            return None, None
 
         for result in results:
             for ball in result.boxes:
@@ -91,7 +94,10 @@ class DetectionModel:
             frame (numpy.ndarray): The input image frame on which to draw.
             detected_balls (tuple): The detection results containing bounding boxes and labels.
         """
-        boxes = detected_balls[0].boxes
+        if len(detected_balls) == 0 or detected_balls[0].boxes is None:
+            boxes = []
+        else:
+            boxes = detected_balls[0].boxes
         for ball in boxes:
             xyxy_tensor = ball.xyxy.cpu() # Detections in Tensor format in CPU memory
             xyxy = xyxy_tensor.numpy().squeeze() # Convert tensors to Numpy array

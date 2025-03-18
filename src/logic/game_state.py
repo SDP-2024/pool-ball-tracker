@@ -25,8 +25,13 @@ class StateManager:
         not_moved_counter = 0
         num_balls = 0
 
+        if data is None or len(data) == 0 or data[0].boxes is None:
+            boxes = []
+        else:
+            boxes = data[0].boxes
+
         # Process detected balls
-        for ball in data[0].boxes:
+        for ball in boxes:
             xyxy_tensor = ball.xyxy.cpu()
             xyxy = xyxy_tensor.numpy().squeeze()
             xmin, ymin, xmax, ymax = map(int, xyxy.astype(int))
