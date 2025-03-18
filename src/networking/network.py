@@ -47,7 +47,7 @@ class Network:
             self.disconnect_counter = 0
         except Exception as e:
             self.disconnect_counter += 1
-            logger.error("Failed to send ballPositions")
+            logger.error(f"Failed to send ballPositions: {e}")
             if self.disconnect_counter >= 10:
                 self.reconnect()
             pass
@@ -59,9 +59,10 @@ class Network:
             self.disconnect_counter = 0
         except Exception as e:
             self.disconnect_counter += 1
-            logger.error("Failed to send endOfTurn")
+            logger.error(f"Failed to send endOfTurn: {e}")
             if self.disconnect_counter >= 10:
                 self.reconnect()
+            pass
 
     def send_obstruction(self, obstruction_detected):
         try:
@@ -69,7 +70,7 @@ class Network:
             self.disconnect_counter = 0
         except Exception as e:
             self.disconnect_counter += 1
-            logger.error("Failed to send obstructionDetected")
+            logger.error(f"Failed to send obstructionDetected: {e}")
             if self.disconnect_counter >= 10:
                 self.reconnect()
             pass
