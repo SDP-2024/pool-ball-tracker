@@ -65,7 +65,7 @@ class StateManager:
             if not self.end_of_turn:
                 self.end_of_turn = True
                 if self.network:
-                    self.network.send_end_of_turn(True)
+                    self.network.send_end_of_turn("true")
             return
 
         # Update the socket with the new state

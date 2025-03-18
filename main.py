@@ -114,8 +114,8 @@ def main():
         if not args.collect_ae_data and not args.no_anomaly:
             table_only = detection_model.extract_bounding_boxes(frame, detected_balls)
             is_anomaly = autoencoder.detect_anomaly(table_only)
-            if network:
-                network.send_obstruction(is_anomaly)
+            if network and is_anomaly:
+                network.send_obstruction("true")
 
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
