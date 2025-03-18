@@ -190,7 +190,7 @@ def manage_point_selection(camera):
         logger.info("Select 4 points for Camera (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
 
         while len(table_pts) < 4:
-            frame = camera.capture_array()
+            frame = camera.read()
             if frame is None:
                 logger.error("Failed to grab frame from Camera")
                 return None

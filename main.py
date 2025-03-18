@@ -59,9 +59,9 @@ def main():
     frame = camera.read()
 
     # Set up coordinate system for the cropped frames
-    table_pts = manage_point_selection(config, camera, mtx, dst)
-    stitched_frame = get_top_down_view(frame,table_pts)
-    logger.info(stitched_frame.shape)
+    table_pts = manage_point_selection(camera)
+    frame = get_top_down_view(frame,table_pts)
+    logger.info(frame.shape)
 
     # If networking is enabled, start the server
     network = None
@@ -86,8 +86,6 @@ def main():
         # Read frames
         frame = camera.read()
 
-        # Fix any distortion in the cameras
-        frame = undistort_cameras(config, frame, mtx, dst, new_mtx, roi)
 
         if frame is None:
             logger.error("Camera frame is invalid.")
@@ -95,23 +93,26 @@ def main():
 
         # Get top-down view of the table
         frame = get_top_down_view(frame, table_pts)
+        # TODO: Take checkerboard pattern images from top-down view for camera calibration
+        # Fix any distortion in the camera, after getting top down view
+        frame = undistort_cameras(config, frame, mtx, dst, new_mtx, roi)
 
         if args.collect_ae_data: # Collect data for autoencoder
-            capture_frame(config, stitched_frame)
+            capture_frame(config, frame)
         if args.collect_model_images:
-            capture_frame_for_training(config, stitched_frame)
+            capture_frame_for_training(config, frame)
 
-        drawing_frame = stitched_frame.copy()
+        drawing_frame = frame.copy()
 
         # Detect and draw balls to frame
-        detected_balls, labels = detection_model.detect(stitched_frame)
+        detected_balls, labels = detection_model.detect(frame)
         detection_model.draw(drawing_frame, detected_balls)
 
         state_manager.update(detected_balls, labels)
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data and not args.no_anomaly:
-            table_only = detection_model.extract_bounding_boxes(stitched_frame, detected_balls)
+            table_only = detection_model.extract_bounding_boxes(frame, detected_balls)
             is_anomaly = autoencoder.detect_anomaly(table_only)
             if network:
                 network.send_obstruction(is_anomaly)
@@ -182,9 +183,9 @@ def parse_args():
 def load_cameras(config):
     # Attempt to load cameras
     try:
-        logger.info("Starting cameras...")
-        camera = VideoStream(config["camera_port_1"]).start()
-        logger.info("Camera 1 started.")
+        logger.info("Starting camera...")
+        camera = VideoStream(config["camera_port"]).start()
+        logger.info("Camera started.")
         return camera
     except Exception as e:
         logger.error(f"Error starting camera: {e}")
