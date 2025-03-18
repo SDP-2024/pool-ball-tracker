@@ -52,7 +52,7 @@ Modify `config.yaml` to adjust settings such as:
 - `camera_port` **Must** be set to a valid port (typically 0 or 1)
 - `calibrate_camera` Default to `false`, if setting to `true` then camera calibration photos must be provided.
 - `calibration_folder` Provide the folder name of the calibration photos. Must be placed within `/config/calibration/`.
-  - Example: `calibration_folders : ["/folder_cam"]`
+  - Example: `calibration_folder : ["/folder_cam"]`
 - `detection_model_path` Provide the path of a ball detection model if you wish to use your own.
 
 Optionally create a new configuration profile with:
