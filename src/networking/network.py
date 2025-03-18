@@ -54,7 +54,7 @@ class Network:
 
     def send_end_of_turn(self, end_of_turn):
         try:
-            self.info("Sending end of turn: %s", end_of_turn)
+            logger.info("Sending end of turn: %s", end_of_turn)
             self.sio.emit("endOfTurn", end_of_turn)
             self.disconnect_counter = 0
         except Exception as e:
@@ -66,6 +66,7 @@ class Network:
 
     def send_obstruction(self, obstruction_detected):
         try:
+            logger.info("Sending obstruction detected: %s", obstruction_detected)
             self.sio.emit("obstructionDetected", obstruction_detected)
             self.disconnect_counter = 0
         except Exception as e:
