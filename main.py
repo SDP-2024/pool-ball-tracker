@@ -49,21 +49,19 @@ def main():
         reset_points()
     
     # Calibrate cameras
-    mtx_1, dst_1, mtx_2, dst_2 = handle_calibration(config)
-    camera_1, camera_2 = load_cameras(config)
+    mtx, dst = handle_calibration(config)
+    camera = load_cameras(config)
 
     # Allow cameras to warm up
     time.sleep(2.0)
         
     # Read frames
-    frame_1 = camera_1.read()
-    frame_2 = camera_2.read() if camera_2 else None
+    frame = camera.read()
 
     # Set up coordinate system for the cropped frames
-    if camera_2 is not None:
-        table_pts_cam1, table_pts_cam2 = manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2)
-        stitched_frame = get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
-        logger.info(stitched_frame.shape)
+    table_pts, table_pts_cam2 = manage_point_selection(config, camera, mtx, dst)
+    stitched_frame = get_top_down_view(frame,table_pts)
+    logger.info(stitched_frame.shape)
 
     # If networking is enabled, start the server
     network = None
@@ -86,18 +84,17 @@ def main():
     # Process the frames
     while True:
         # Read frames
-        frame_1 = camera_1.read()
-        frame_2 = camera_2.read() if camera_2 else None
+        frame = camera.read()
 
         # Fix any distortion in the cameras
-        frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
+        frame = undistort_cameras(config, frame, mtx, dst)
 
-        if frame_1 is None:
-            logger.error("Camera 1 frame is invalid.")
+        if frame is None:
+            logger.error("Camera frame is invalid.")
             continue 
 
         # Get top-down view of the table
-        stitched_frame = frame_1 if frame_2 is None else get_top_down_view(frame_1, frame_2, table_pts_cam1, table_pts_cam2)
+        frame = get_top_down_view(frame, table_pts)
 
         if args.collect_ae_data: # Collect data for autoencoder
             capture_frame(config, stitched_frame)
@@ -105,7 +102,6 @@ def main():
             capture_frame_for_training(config, stitched_frame)
 
         drawing_frame = stitched_frame.copy()
-
 
         # Detect and draw balls to frame
         detected_balls, labels = detection_model.detect(stitched_frame)
@@ -120,15 +116,12 @@ def main():
             if network:
                 network.send_obstruction(is_anomaly)
 
-
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     # Cleanup
-    camera_1.stop()
-    if camera_2 is not None:
-        camera_2.stop()
+    camera.stop()
     cv2.destroyAllWindows()
     if config["use_networking"]:
         network.disconnect()
@@ -190,18 +183,9 @@ def load_cameras(config):
     # Attempt to load cameras
     try:
         logger.info("Starting cameras...")
-        camera_1 = VideoStream(config["camera_port_1"]).start()
+        camera = VideoStream(config["camera_port_1"]).start()
         logger.info("Camera 1 started.")
-
-        # Check if second camera enabled
-        if config["camera_port_2"] != -1:
-            camera_2 = VideoStream(config["camera_port_2"]).start()
-            logger.info("Camera 2 started.")
-        else:
-            logger.warning("Camera 2 disabled. Continuing with camera 1 only.")
-            camera_2 = None
-
-        return camera_1, camera_2
+        return camera
     except Exception as e:
         logger.error(f"Error starting camera: {e}")
         return

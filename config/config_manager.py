@@ -12,10 +12,9 @@ schema = {
     "type": "dict",
     "allow_unknown": True,
     "schema": {  # Define the structure for each profile
-        "camera_port_1" : {"type": "integer", "min": 0},
-        "camera_port_2" : {"type": "integer", "min": -1},
-        "calibrate_cameras": {"type": "boolean"},
-        "calibration_folders": {
+        "camera_port" : {"type": "integer", "min": 0},
+        "calibrate_camera": {"type": "boolean"},
+        "calibration_folder": {
             "type" : "list", 
             "schema": {"type" : "string", "min" : 0}
             },
@@ -148,10 +147,9 @@ def create_profile(path="../config", name="default"):
             return None
 
     profiles[name] = {
-            "camera_port_1" : 0,
-            "camera_port_2" : -1,
-            "calibrate_cameras": False,
-            "calibration_folders": [],
+            "camera_port" : 0,
+            "calibrate_camera": False,
+            "calibration_folder": [],
             "font_color": [255, 255, 255],
             "font_scale": 0.5,
             "font_thickness": 2,

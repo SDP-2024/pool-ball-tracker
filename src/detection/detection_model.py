@@ -22,6 +22,7 @@ class DetectionModel:
         self.bbox_colors = [(255,0,0), (0,0,0), (0,0,255), (255,255,255), (255,255,0)]
         self.count = 0
         self.track_history = defaultdict(lambda: [])
+        self.draw_window = cv2.namedWindow("Detection", cv2.WINDOW_NORMAL)
 
 
     def load_model(self):
@@ -104,7 +105,7 @@ class DetectionModel:
                 color = self.bbox_colors[classidx % len(self.bbox_colors)]
                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 2)
                 label = f"{classname}: {int(conf*100)}%"
-                labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_thickness"])
+                labelSize, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_thickness"])
                 label_ymin = max(ymin, labelSize[1] + 10)
                 cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], (0, 0, 0), self.config["font_thickness"]) # Draw label text
 

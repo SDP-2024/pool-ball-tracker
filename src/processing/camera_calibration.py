@@ -57,6 +57,7 @@ def calibrate_camera(path, chessboard_size=(8, 5)):
     return mtx, dist
 
 
+
 def handle_calibration(config):
     """
     Handles the calibration of the cameras.
@@ -67,18 +68,18 @@ def handle_calibration(config):
 
     Returns:
         tuple: Contains the camera matrices and distortion coefficients for both cameras.
-               (mtx_1, dst_1, mtx_2, dst_2)
+               (mtx, dst)
     """
 
-    mtx_1, dst_1, mtx_2, dst_2 = None, None, None, None
+    mtx, dst = None, None
     
     if not config.get("calibrate_cameras", False):
-        return mtx_1, dst_1, mtx_2, dst_2
+        return mtx, dst
 
     calibration_folders = config.get("calibration_folders", [])
     if len(calibration_folders) < 1:
         logger.error("No calibration folders supplied. Please check config.yaml.")
-        return mtx_1, dst_1, mtx_2, dst_2
+        return mtx, dst
     
     
     def calibrate_and_log(camera_index, folder):
@@ -86,30 +87,21 @@ def handle_calibration(config):
         logger.info(f"Calibrating camera {camera_index}")
         return calibrate_camera(folder_path)
 
-    mtx_1, dst_1 = calibrate_and_log(1, calibration_folders[0])
+    mtx, dst = calibrate_and_log(1, calibration_folders[0])
 
-    if config.get("camera_port_2", -1) != -1:
-        if len(calibration_folders) < 2:
-            logger.error("Could not calibrate camera 2. Please check calibration folders are correctly supplied.")
-            return mtx_1, dst_1, mtx_2, dst_2
-
-        mtx_2, dst_2 = calibrate_and_log(2, calibration_folders[1])
-
-    return mtx_1, dst_1, mtx_2, dst_2
+    return mtx, dst
 
 
-def undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2):
+
+def undistort_cameras(config, frame, mtx, dst):
     """
     Undistorts the input frames using the camera calibration parameters.
 
     Args:
         config (dict): Configuration dictionary containing calibration settings.
-        frame_1 (numpy.ndarray): The frame from camera 1.
-        frame_2 (numpy.ndarray): The frame from camera 2.
-        mtx_1 (numpy.ndarray): Camera matrix for camera 1.
-        dst_1 (numpy.ndarray): Distortion coefficients for camera 1.
-        mtx_2 (numpy.ndarray): Camera matrix for camera 2.
-        dst_2 (numpy.ndarray): Distortion coefficients for camera 2.
+        frame (numpy.ndarray): The frame from camera.
+        mtx (numpy.ndarray): Camera matrix for camera.
+        dst (numpy.ndarray): Distortion coefficients for camera.
 
     Returns:
         tuple: The undistorted frames.
@@ -124,27 +116,19 @@ def undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2):
         return undistorted_frame[y:y+h, x:x+w]
 
     if config.get("calibrate_cameras", False):
-        frame_1 = undistort_frame(frame_1, mtx_1, dst_1)
-        frame_2 = undistort_frame(frame_2, mtx_2, dst_2)
+        frame = undistort_frame(frame, mtx, dst)
 
-    return frame_1, frame_2
+    return frame
 
 
 def select_points(event, x, y, flags, param):
-    table_pts_cam1, table_pts_cam2, selected_cam = param
+    table_pts = param  # Get the list from param
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        if selected_cam[0] == 1:
-            table_pts_cam1.append((x, y))
-        else:
-            table_pts_cam2.append((x, y))
+        table_pts.append((x, y))
+        logger.info(f"Point selected: {(x, y)}")
 
-        logger.info(f"Point selected: {(x, y)} for Camera {selected_cam[0]}")
-
-        if len(table_pts_cam1) == 4 and selected_cam[0] == 1:
-            logger.info("Switching to Camera 2. Select 4 points.")
-            selected_cam[0] = 2
-        elif len(table_pts_cam2) == 4:
+        if len(table_pts) == 4:
             logger.info("All points selected!")
             cv2.setMouseCallback("Point Selection", lambda *args: None)  # Disable further callbacks
 
@@ -152,25 +136,24 @@ def select_points(event, x, y, flags, param):
 def load_table_points(file_path="config/table_points.json"):
     if not os.path.exists(file_path):
         logger.warning(f"{file_path} not found. Points need to be selected manually.")
-        return None, None
+        return None
 
     with open(file_path, "r") as f:
         data = json.load(f)
     
     try:
-        table_pts_cam1 = np.array(data["table_pts_cam1"], dtype=np.float32)
-        table_pts_cam2 = np.array(data["table_pts_cam2"], dtype=np.float32)
+        table_pts = np.array(data["table_pts"], dtype=np.float32)
     except KeyError as e:
         logger.error(f"Key error: {e}. Points need to be selected manually.")
-        return None, None
+        return None
 
-    return table_pts_cam1, table_pts_cam2
+    return table_pts
 
 
-def save_table_points(table_pts_cam1, table_pts_cam2, file_path="config/table_points.json"):
+
+def save_table_points(table_pts, file_path="config/table_points.json"):
     data = {
-        "table_pts_cam1": [list(pt) for pt in table_pts_cam1],
-        "table_pts_cam2": [list(pt) for pt in table_pts_cam2]
+        "table_pts": [list(pt) for pt in table_pts],
     }
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, "w") as f:
@@ -178,42 +161,35 @@ def save_table_points(table_pts_cam1, table_pts_cam2, file_path="config/table_po
     logger.info(f"Table points saved to {file_path}")
 
 
-def manage_point_selection(config, camera_1, camera_2, mtx_1, dst_1, mtx_2, dst_2):
-    table_pts_cam1, table_pts_cam2 = load_table_points()
+def manage_point_selection(camera):
+    table_pts = load_table_points()
 
-    if table_pts_cam1 is None or table_pts_cam2 is None:
-        table_pts_cam1, table_pts_cam2 = [], []
-        selected_cam = [1]
+    if table_pts is None:
+        table_pts = []
 
         cv2.namedWindow("Point Selection")
-        cv2.setMouseCallback("Point Selection", select_points, param=(table_pts_cam1, table_pts_cam2, selected_cam))
+        cv2.setMouseCallback("Point Selection", select_points, param=table_pts)
 
-        logger.info("Select 4 points for Camera 1 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
+        logger.info("Select 4 points for Camera (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
 
-        while len(table_pts_cam1) < 4 or len(table_pts_cam2) < 4:
-            frame_1 = camera_1.read()
-            if frame_1 is None:
-                logger.error("Failed to grab frame from Camera 1")
-                return None, None
-            
-            frame_2 = camera_2.read() if camera_2 else None
-            if camera_2 and frame_2 is None:
-                logger.error("Failed to grab frame from Camera 2")
+        while len(table_pts) < 4:
+            frame = camera.capture_array()
+            if frame is None:
+                logger.error("Failed to grab frame from Camera")
+                return None
 
+            display_frame = frame.copy()
 
-            #frame_1, frame_2 = undistort_cameras(config, frame_1, frame_2, mtx_1, dst_1, mtx_2, dst_2)
-
-            display_frame = frame_1.copy() if selected_cam[0] == 1 else frame_2.copy()
-
-            for pt in (table_pts_cam1 if selected_cam[0] == 1 else table_pts_cam2):
+            for pt in table_pts:
                 cv2.circle(display_frame, pt, 5, (0, 0, 255), -1)
 
             cv2.imshow("Point Selection", display_frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
                 logger.info("Point selection aborted by user.")
-                break
+                return None
 
-        save_table_points(table_pts_cam1, table_pts_cam2)
+        save_table_points(table_pts)
         cv2.destroyWindow("Point Selection")
 
-    return np.array(table_pts_cam1, dtype=np.float32), np.array(table_pts_cam2, dtype=np.float32)
+    return np.array(table_pts, dtype=np.float32)

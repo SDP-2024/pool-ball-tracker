@@ -1,9 +1,8 @@
 profiles:
   default:
-    calibrate_cameras: false
-    calibration_folders: ["./config/calibration/wide_angle_cam"]
-    camera_port_1: 1
-    camera_port_2: -1
+    calibrate_camera: false
+    calibration_folder: ["./config/calibration/wide_angle_cam"]
+    camera_port: 1
     font_color:
       - 255
       - 255
