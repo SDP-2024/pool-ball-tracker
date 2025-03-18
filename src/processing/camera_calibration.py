@@ -7,7 +7,7 @@ import json
 
 logger = logging.getLogger(__name__)
 
-def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
+def calibrate_camera(path, chessboard_size=(8, 5), square_size=2.9):
     """
     Calibrates a wide-angle camera using a set of chessboard images.
 
@@ -55,9 +55,11 @@ def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
         raise ValueError("No valid chessboard corners found. Check images or chessboard size.")
 
     h, w = gray.shape[:2]
+    mtx = np.eye(3, dtype=np.float32)
+    dist = np.zeros((4, 1), dtype=np.float32)
 
     # Calibrate camera using standard distortion model (5 parameters)
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (w, h), None, None)
+    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objpoints, imgpoints, (w, h), None, None)
 
     # Compute reprojection error, good: < 0.5 pixels, bad: > 1 pixel
     total_error = 0
@@ -121,7 +123,7 @@ def undistort_camera(config, frame, mtx, dst):
     def undistort_frame(frame, mtx, dst):
         if frame is None or mtx is None or dst is None:
             return frame
-        undistorted_frame = cv2.undistort(frame, mtx, dst)
+        undistorted_frame = cv2.fisheye.undistortImage(frame, mtx, dst)
 
         return undistorted_frame
 
