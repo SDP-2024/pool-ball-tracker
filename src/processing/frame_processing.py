@@ -21,6 +21,7 @@ def get_top_down_view(frame, table_pts):
 
     # Warp the frames
     top_down_view = cv2.warpPerspective(frame, M, (output_width, output_height), borderMode=cv2.BORDER_REPLICATE)
+    top_down_view = cv2.flip(top_down_view, 0)
 
     return top_down_view
 

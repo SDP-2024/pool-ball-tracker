@@ -11,6 +11,8 @@ class StateManager:
         self.time_between_updates = self.config["network_update_interval"]
         self.time_since_last_update = time.time() - self.time_between_updates
         self.end_of_turn = False
+        self.origin_set = False
+        self.origin_offset = (0,0)
 
     # TODO: Handle balls that are missed for a few frames by detection
     def update(self, data, labels):
@@ -38,14 +40,22 @@ class StateManager:
             classidx = int(ball.cls.item())
             classname = labels[classidx]
 
+            if not self.origin_set:
+                middlex = int((xmin + xmax) // 2)
+                middley = int((ymin + ymax) // 2)
+                if classname == "hole" and (middlex - 100) < 0 and (middley - 100) < 0:
+                    self.origin_offset = (middlex, middley)
+                    logger.info("Origin set to: %s", self.origin_offset)
+                    self.origin_set = True
+
             # Ignore arm
-            if classname == "arm":
+            if classname == "arm" or classname == "hole":
                 continue
 
             num_balls += 1
 
-            middlex = int((xmin + xmax) // 2)
-            middley = int((ymin + ymax) // 2)
+            middlex = int((xmin + xmax) // 2) - self.origin_offset[0]
+            middley = int((ymin + ymax) // 2) - self.origin_offset[1]
 
             # Check if this ball is close to a previous position
             if self.previous_state and classname in self.previous_state:
@@ -78,6 +88,7 @@ class StateManager:
             self.previous_state = balls
             self.time_since_last_update = current_time
             self.end_of_turn = False
+            logger.info("Sending balls: %s", balls)
 
             if self.network:
                 self.network.send_balls({"balls": balls})

@@ -19,7 +19,7 @@ class DetectionModel:
         self.model_path = config["detection_model_path"]
         self.model = self.load_model()
         self.labels = self.model.names
-        self.bbox_colors = [(255,0,0), (0,0,0), (0,0,255), (255,255,255), (255,255,0)]
+        self.bbox_colors = [(0,0,255), (0,0,0), (0, 255, 0), (255,0,0), (255,255,255), (255,255,0)]
         self.count = 0
         self.track_history = defaultdict(lambda: [])
         #self.draw_window = cv2.namedWindow("Detection", cv2.WINDOW_NORMAL)
@@ -53,7 +53,7 @@ class DetectionModel:
         
         if results is None or len(results) == 0 or results[0].boxes is None:
             return None, None
-
+        
         for result in results:
             for ball in result.boxes:
                 classidx = int(ball.cls.item())
@@ -76,6 +76,9 @@ class DetectionModel:
             elif classname == "yellow" and ball_counts["yellow"] < 7:
                 ball_counts["yellow"] += 1
                 filtered_boxes.append(ball)
+            elif classname == "hole" and ball_counts["hole"] < 6:
+                ball_counts["hole"] += 1
+                filtered_boxes.append(ball)
             elif classname == "arm":
                 filtered_boxes.append(ball)
         
@@ -83,7 +86,7 @@ class DetectionModel:
         filtered_results = results[0]
         filtered_results.boxes = filtered_boxes
         
-        return filtered_results, self.labels
+        return (filtered_results,), self.labels
     
 
     def draw(self, frame, detected_balls):
@@ -116,7 +119,7 @@ class DetectionModel:
                 cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], (0, 0, 0), self.config["font_thickness"]) # Draw label text
 
                 self.count += 1
-
+                
         cv2.putText(frame, f'Number of objects: {self.count}', (10,40), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0), 1) # Draw count of objects
         cv2.imshow("Detection", frame)
 
