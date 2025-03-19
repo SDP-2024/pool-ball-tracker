@@ -4,13 +4,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 class StateManager:
-    def __init__(self, config, network):
+    def __init__(self, config, network=None):
         self.config = config
         self.previous_state = None
         self.network = network
         self.time_between_updates = self.config["network_update_interval"]
         self.time_since_last_update = time.time() - self.time_between_updates
+        self.end_of_turn = False
+        self.origin_set = False
+        self.origin_offset = (0,0)
 
+    # TODO: Handle balls that are missed for a few frames by detection
     def update(self, data, labels):
         current_time = time.time()
         if current_time - self.time_since_last_update < self.time_between_updates:
@@ -20,51 +24,71 @@ class StateManager:
         balls = {}
         position_threshold = self.config["position_threshold"]
 
-        # Initialize missing_frames for each ball in the previous state
-        if self.previous_state:
-            for color, prev_balls in self.previous_state.items():
-                for prev_ball in prev_balls:
-                    prev_ball["missing_frames"] = prev_ball.get("missing_frames", 0) + 1
+        not_moved_counter = 0
+        num_balls = 0
+
+        if data is None or len(data) == 0 or data[0].boxes is None:
+            boxes = []
+        else:
+            boxes = data[0].boxes
 
         # Process detected balls
-        for ball in data[0].boxes:
+        for ball in boxes:
             xyxy_tensor = ball.xyxy.cpu()
             xyxy = xyxy_tensor.numpy().squeeze()
             xmin, ymin, xmax, ymax = map(int, xyxy.astype(int))
             classidx = int(ball.cls.item())
             classname = labels[classidx]
-            conf = ball.conf.item()
 
-            if conf > self.config["conf_threshold"]:
-                middley = int((xmin + xmax) // 2)
-                middlex = int((ymin + ymax) // 2)
+            if not self.origin_set:
+                middlex = int((xmin + xmax) // 2)
+                middley = int((ymin + ymax) // 2)
+                if classname == "hole" and (middlex - 100) < 0 and (middley - 100) < 0:
+                    self.origin_offset = (middlex, middley)
+                    logger.info("Origin set to: %s", self.origin_offset)
+                    self.origin_set = True
 
-                # Check if this ball is close to a previous position
-                is_new_position = True
-                if self.previous_state:
-                    for prev_ball in self.previous_state.get(classname, []):
-                        dx = abs(prev_ball["x"] - middley)
-                        dy = abs(prev_ball["y"] - middlex)
-                        if dx <= position_threshold and dy <= position_threshold:
-                            is_new_position = False
-                            # prev_ball["x"] = middley
-                            # prev_ball["y"] = middlex
-                            middley = prev_ball["x"]
-                            middlex = prev_ball["y"]
-                            break  # No need to check further, we found a match
+            # Ignore arm
+            if classname == "arm" or classname == "hole":
+                continue
 
-                if is_new_position:
-                    if classname not in balls:
-                        balls[classname] = []
-                    balls[classname].append({"x": middlex, "y": middley})
+            num_balls += 1
 
-        # Update the database with the new state
+            middlex = int((xmin + xmax) // 2) - self.origin_offset[0]
+            middley = int((ymin + ymax) // 2) - self.origin_offset[1]
+
+            # Check if this ball is close to a previous position
+            if self.previous_state and classname in self.previous_state:
+                for prev_ball in self.previous_state[classname]:
+                    dx = abs(prev_ball["x"] - middlex)
+                    dy = abs(prev_ball["y"] - middley)
+                    if dx <= position_threshold and dy <= position_threshold:
+                        not_moved_counter += 1
+                        prev_ball["x"] = middlex
+                        prev_ball["y"] = middley
+                        break  # Match found
+
+            if classname not in balls:
+                balls[classname] = []
+            balls[classname].append({"x": middlex, "y": middley})
+
+        # Only update the state if there are new positions
+        if not_moved_counter == num_balls:
+            logger.debug("No significant ball movement detected. Skipping state update.")
+            self.previous_state = balls
+            # If balls stopped moving detected, end the turn. Only send once
+            if not self.end_of_turn:
+                self.end_of_turn = True
+                if self.network:
+                    self.network.send_end_of_turn("true")
+            return
+
+        # Update the socket with the new state
         if balls:
-            #logger.info("Updating state with detected balls: %s", balls)
             self.previous_state = balls
             self.time_since_last_update = current_time
+            self.end_of_turn = False
+            logger.info("Sending balls: %s", balls)
 
-            if self.network:  # Ensure network is not None
+            if self.network:
                 self.network.send_balls({"balls": balls})
-            else:
-                logger.warning("Network is not initialized. Cannot send ball positions.")

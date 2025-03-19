@@ -12,10 +12,9 @@ schema = {
     "type": "dict",
     "allow_unknown": True,
     "schema": {  # Define the structure for each profile
-        "camera_port_1" : {"type": "integer", "min": 0},
-        "camera_port_2" : {"type": "integer", "min": -1},
-        "calibrate_cameras": {"type": "boolean"},
-        "calibration_folders": {
+        "camera_port" : {"type": "integer", "min": 0},
+        "calibrate_camera": {"type": "boolean"},
+        "calibration_folder": {
             "type" : "list", 
             "schema": {"type" : "string", "min" : 0}
             },
@@ -28,7 +27,6 @@ schema = {
         "font_scale": {"type": "float", "min": 0.1, "max": 5.0},
         "font_thickness": {"type": "integer", "min": 1, "max": 10},
         "use_networking" : {"type": "boolean"},
-        "video_stream": {"type": "boolean"},
         "detection_model_path" : {"type": "string", "min" : 0},
         "conf_threshold": {"type": "float", "min": 0, "max": 1.0},
         "clean_images_path": {"type": "string", "min" : 0},
@@ -149,15 +147,13 @@ def create_profile(path="../config", name="default"):
             return None
 
     profiles[name] = {
-            "camera_port_1" : 0,
-            "camera_port_2" : -1,
-            "calibrate_cameras": False,
-            "calibration_folders": [],
+            "camera_port" : 0,
+            "calibrate_camera": False,
+            "calibration_folder": [],
             "font_color": [255, 255, 255],
             "font_scale": 0.5,
             "font_thickness": 2,
             "use_networking" : False,
-            "video_stream": False,
             "detection_model_path" : "/model",
             "conf_threshold": 0.5,
             "clean_images_path": "/clean_images",
