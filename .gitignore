@@ -205,6 +205,7 @@ config/hsv_adjuster.py
 model/clean_images
 src/database/serviceAccountKey.json
 model/training_images
+model/wide_training_images
 model/train
 model/model.zip
 model/old_model.pt
