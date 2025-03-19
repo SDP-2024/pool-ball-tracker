@@ -7,82 +7,54 @@ import json
 
 logger = logging.getLogger(__name__)
 
-def calibrate_camera(path, chessboard_size=(8, 5), square_size=1.0):
+def calibrate_camera(path, chessboard_size=(8, 5)):
     """
-    Calibrates a wide-angle camera using a set of chessboard images.
+    Calibrates a camera using a set of images of a chessboard pattern.
 
     Args:
         path (str): Path to the images used for calibration.
-        chessboard_size (tuple): The number of internal corners in the chessboard pattern (columns, rows).
-        square_size (float): Real-world size of a square on the chessboard (optional, default is 1.0).
+        chessboard_size (tuple, optional): The number of internal corners in the chessboard pattern 
+                                           as (columns, rows). Defaults to (8, 5).
 
     Returns:
         tuple: A tuple containing:
             - mtx (np.ndarray): The camera matrix.
             - dist (np.ndarray): The distortion coefficients.
     """
+    
+    obj_points = []  # 3D points in real-world space
+    img_points = []  # 2D points in image plane
 
-    objpoints = []  # 3D points in real-world space
-    imgpoints = []  # 2D points in image plane
+    # Prepare a grid of points for the chessboard pattern
+    objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
+    objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2)
 
-    # Prepare object points (chessboard pattern in real-world space)
-    objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), dtype=np.float32)
-    objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2) * square_size
-
-    # Ensure the shape is (num_corners, 1, 3)
-    objp = objp.reshape(-1, 1, 3).astype(np.float32)
-
-
+    # Get all image files
     images = glob.glob(os.path.join(path, "*.jpg"))
     if not images:
         raise FileNotFoundError(f"No images found in {path}")
 
     for img_path in images:
-        logging.info(f"Processing {img_path}")
-        img = cv2.imread(img_path)
+        img = cv2.imread(img_path)  # Read the image
         if img is None:
-            print(f"Could not read {img_path}")
-            continue
+            logger.error(f"Could not read {img_path}")
+            continue  # Skip unreadable images
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        # Find chessboard corners
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
         ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
 
         if ret:
-            refined_corners = cv2.cornerSubPix(gray, corners, (3, 3), (-1, -1),
-                                            (cv2.TERM_CRITERIA_EPS +
-                                                cv2.TERM_CRITERIA_MAX_ITER, 30, 0.1))
-            imgpoints.append(refined_corners.reshape(-1, 1, 2).astype(np.float32))  # Fix shape
-            objpoints.append(objp.copy())
+            img_points.append(corners)
+            obj_points.append(objp)
 
-    if not objpoints or not imgpoints:
-        raise ValueError("No valid chessboard corners found. Check images or chessboard size.")
+    # Ensure calibration data exists
+    if not obj_points or not img_points:
+        raise ValueError("No chessboard corners found in any image. Check the images or chessboard size.")
 
-    h, w = gray.shape[:2]
-    # Initialize camera matrix and distortion coefficients
-    K = np.eye(3, dtype=np.float32)
-    D = np.zeros((4, 1), dtype=np.float32)
+    # Calibrate the camera
+    ret, mtx, dist, _, _ = cv2.calibrateCamera(obj_points, img_points, gray.shape[::-1], None, None)
 
-    # Fisheye calibration
-    ret, K, D, rvecs, tvecs = cv2.fisheye.calibrate(
-        objpoints, imgpoints, (w, h), K, D,
-        flags=(cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC |
-               cv2.fisheye.CALIB_FIX_SKEW |
-               cv2.fisheye.CALIB_CHECK_COND)
-    )
-
-    # Compute reprojection error
-    total_error = 0
-    for i in range(len(objpoints)):
-        projected_points, _ = cv2.fisheye.projectPoints(objpoints[i], rvecs[i], tvecs[i], K, D)
-        error = cv2.norm(imgpoints[i], projected_points, cv2.NORM_L2) / len(projected_points)
-        total_error += error
-
-    reprojection_error = total_error / len(objpoints)
-    logger.info(f"Reprojection Error: {reprojection_error:.4f}")
-
-    return K, D
+    return mtx, dist
 
 
 
@@ -123,30 +95,26 @@ def undistort_camera(config, frame, mtx, dst):
 
     Args:
         config (dict): Configuration dictionary containing calibration settings.
-        frame (numpy.ndarray): The frame from the camera.
-        mtx (numpy.ndarray): Original camera matrix.
-        dst (numpy.ndarray): Distortion coefficients.
+        frame (numpy.ndarray): The frame from camera.
+        mtx (numpy.ndarray): Camera matrix for camera.
+        dst (numpy.ndarray): Distortion coefficients for camera.
 
     Returns:
-        numpy.ndarray: The undistorted frame.
+        tuple: The undistorted frames.
     """
-    if frame is None or mtx is None or dst is None:
-        return frame
+    def undistort_frame(frame, mtx, dst):
+        if frame is None or mtx is None or dst is None:
+            return frame
+        h, w = frame.shape[:2]
+        new_camera_mtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dst, (w, h), 1, (w, h))
+        undistorted_frame = cv2.undistort(frame, mtx, dst, None, new_camera_mtx)
+        return undistorted_frame
 
-    h, w = frame.shape[:2]
+    if config.get("calibrate_cameras", False):
+        frame = undistort_frame(frame, mtx, dst)
 
-    # Compute the optimal new camera matrix
-    new_mtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
-        mtx, dst, (w, h), np.eye(3), balance=1
-    )
+    return frame
 
-    # Compute undistortion maps
-    map1, map2 = cv2.fisheye.initUndistortRectifyMap(mtx, dst, np.eye(3), new_mtx, (w, h), cv2.CV_16SC2)
-
-    # Apply remapping for undistortion
-    undistorted_frame = cv2.remap(frame, map1, map2, interpolation=cv2.INTER_LINEAR)
-
-    return undistorted_frame
 
 
 
