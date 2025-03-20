@@ -58,31 +58,26 @@ def main():
         state_manager = StateManager(config)
 
     detection_model = DetectionModel(config)
-    # Calibrate cameras
-    mtx, dst = handle_calibration(config)
+
     if args.file is not None:
         frame = cv2.imread(args.file)
-        logger.info("Loaded image.")
-        # Attempt to detect holes, fallback to manual selection if fails
-        detected_balls, labels, ball_counts = detection_model.detect(frame)
-        if ball_counts["hole"] == 6:
-            state_manager.update(detected_balls, labels)
-            table_pts = state_manager.corners
-        else:
-            table_pts = manage_point_selection(config, frame, mtx, dst)
-
     else:
-        camera = load_cameras(config)
-        # Allow cameras to warm up
-        time.sleep(2.0)
+        camera = load_camera(config)
         # Read frames
         frame = camera.read()
-        table_pts = manage_point_selection(config, camera, mtx, dst)
+
+    mtx, dist, newcameramtx, roi = handle_calibration(config, frame)
+    undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
+
+    logger.info(undistorted_frame.shape)
+    # Attempt to detect holes, fallback to manual selection if fails
+    detected_balls, labels, ball_counts = detection_model.detect(undistorted_frame)
+    table_pts = manage_point_selection(config, undistorted_frame, mtx, dist, newcameramtx, roi)
 
     # Set up coordinate system for the cropped frames
     if not args.no_tdv:
-        frame = get_top_down_view(frame,table_pts)
-    logger.info(frame.shape)
+        undistorted_frame = get_top_down_view(undistorted_frame,table_pts)
+    logger.info(undistorted_frame.shape)
 
 
     autoencoder = None
@@ -93,6 +88,7 @@ def main():
     
     
     # Process the frames
+    updated = False
     while True:
         # Read frames
         if args.file is None:
@@ -100,28 +96,37 @@ def main():
             if frame is None:
                 logger.error("Camera frame is invalid.")
                 continue 
-            frame = undistort_camera(config, frame, mtx, dst)
-            if not args.no_tdv:
-                # Get top-down view of the table
-                frame = get_top_down_view(frame, table_pts)
+
+        undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
+
+        if not args.no_tdv:
+            # Get top-down view of the table
+            undistorted_frame = get_top_down_view(undistorted_frame, table_pts)
         
-
         if args.collect_ae_data: # Collect data for autoencoder
-            capture_frame(config, frame)
+            capture_frame(config, undistorted_frame)
         if args.collect_model_images:
-            capture_frame_for_training(config, frame)
+            capture_frame_for_training(config, undistorted_frame)
 
-        drawing_frame = frame.copy()
+        drawing_frame = undistorted_frame.copy()
 
         # Detect and draw balls to frame
-        detected_balls, labels, ball_counts = detection_model.detect(frame)
+        detected_balls, labels, ball_counts = detection_model.detect(undistorted_frame)
         detection_model.draw(drawing_frame, detected_balls)
 
         state_manager.update(detected_balls, labels)
+
+        # If the corners are found, then update the table points so that the top-down view can be updated
+        if not updated and state_manager.corners_found:
+            table_pts = state_manager.corners
+            #frame = get_top_down_view(frame, table_pts)
+            state_manager.origin_set = False # Reset origin
+            logging.info("Updated table points.")
+            updated = True
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data and not args.no_anomaly:
-            table_only = detection_model.extract_bounding_boxes(frame, detected_balls)
+            table_only = detection_model.extract_bounding_boxes(undistorted_frame, detected_balls)
             is_anomaly = autoencoder.detect_anomaly(table_only)
             if network and is_anomaly:
                 network.send_obstruction("true")
@@ -204,12 +209,12 @@ def parse_args():
 
     return parser.parse_args()
 
-def load_cameras(config):
+def load_camera(config):
     # Attempt to load cameras
     try:
         logger.info("Starting camera...")
         camera = VideoStream(config["camera_port"]).start()
-        logger.info("Camera started.")
+        time.sleep(2.0)  # Allow camera to warm up
         return camera
     except Exception as e:
         logger.error(f"Error starting camera: {e}")

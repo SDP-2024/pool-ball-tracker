@@ -17,6 +17,7 @@ class StateManager:
         self.holes_found = False
         self.holes = []
         self.corners = []
+        self.corners_found = False
 
     # TODO: Handle balls that are missed for a few frames by detection
     def update(self, data, labels):
@@ -56,7 +57,8 @@ class StateManager:
                         self.holes_found = True
                         self.order_holes()
                         self.corners = np.array([self.holes[0], self.holes[2], self.holes[3], self.holes[5]], dtype=np.float32)
-                        logger.info(f"Ordered corners: {self.corners}")
+                        self.corners_found = True
+                        logger.info(f"Corners found: {self.corners_found}")
                 elif (middlex - 100) < 0 and (middley - 100) < 0:
                     self.origin_offset = (middlex, middley)
                     logger.info(f"Origin set to: {self.origin_offset}")

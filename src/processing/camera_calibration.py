@@ -1,5 +1,6 @@
 import glob
 import cv2
+from cv2 import aruco
 import numpy as np
 import os
 import logging
@@ -8,7 +9,7 @@ from imutils.video import VideoStream, WebcamVideoStream
 
 logger = logging.getLogger(__name__)
 
-def calibrate_camera(path, chessboard_size=(8, 5)):
+def calibrate_camera(path, frame):
     """
     Calibrates a camera using a set of images of a chessboard pattern.
 
@@ -22,45 +23,66 @@ def calibrate_camera(path, chessboard_size=(8, 5)):
             - mtx (np.ndarray): The camera matrix.
             - dist (np.ndarray): The distortion coefficients.
     """
+
+    if os.path.exists("./camera_calibration.json"):
+        logger.info("Camera calibration already exists. Skipping calibration.")
+        with open("./camera_calibration.json", "r") as json_file:
+            data = json.load(json_file)
+        mtx = np.array(data["mtx"])
+        dist = np.array(data["dist"])
+        logging.info(f"mtx: {mtx}, dist: {dist}")
+        h,  w = frame.shape[:2]
+        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+        return mtx, dist, newcameramtx, roi
     
-    obj_points = []  # 3D points in real-world space
-    img_points = []  # 2D points in image plane
+    logger.info("Calibrating camera...")
+    # Define Charuco board
+    ARUCO_DICT = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+    board = aruco.CharucoBoard((6, 8), 34, 27, ARUCO_DICT)
 
-    # Prepare a grid of points for the chessboard pattern
-    objp = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
-    objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2)
 
-    # Get all image files
+    params = cv2.aruco.DetectorParameters()
+    detector = cv2.aruco.ArucoDetector(ARUCO_DICT, params)
+
+    all_charuco_ids = []
+    all_charuco_corners = []
     images = glob.glob(os.path.join(path, "*.jpg"))
-    if not images:
-        raise FileNotFoundError(f"No images found in {path}")
 
-    for img_path in images:
-        img = cv2.imread(img_path)  # Read the image
-        if img is None:
-            logger.error(f"Could not read {img_path}")
-            continue  # Skip unreadable images
+    # Loop over images and extraction of corners
+    for image_file in images:
+        image = cv2.imread(image_file)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        imgSize = image.shape
+        image_copy = image.copy()
+        marker_corners, marker_ids, rejectedCandidates = detector.detectMarkers(image)
+        
+        if len(marker_ids) > 0: # If at least one marker is detected
+            # cv2.aruco.drawDetectedMarkers(image_copy, marker_corners, marker_ids)
+            ret, charucoCorners, charucoIds = cv2.aruco.interpolateCornersCharuco(marker_corners, marker_ids, image, board)
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
-        ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+            if charucoIds is not None and len(charucoCorners) > 3:
+                all_charuco_corners.append(charucoCorners)
+                all_charuco_ids.append(charucoIds)
 
-        if ret:
-            img_points.append(corners)
-            obj_points.append(objp)
+    # Calibrate camera with extracted information
+    result, mtx, dist, rvecs, tvecs = cv2.aruco.calibrateCameraCharuco(all_charuco_corners, all_charuco_ids, board, imgSize, None, None)
 
-    # Ensure calibration data exists
-    if not obj_points or not img_points:
-        raise ValueError("No chessboard corners found in any image. Check the images or chessboard size.")
+    OUTPUT_JSON = "./camera_calibration.json"
 
-    # Calibrate the camera
-    ret, mtx, dist, _, _ = cv2.calibrateCamera(obj_points, img_points, gray.shape[::-1], None, None)
+    data = {"mtx": mtx.tolist(), "dist": dist.tolist()}
 
-    return mtx, dist
+    with open(OUTPUT_JSON, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
+    logging.info("Calibration data saved to camera_calibration.json")
+    h,  w = image.shape[:2]
+    newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+
+    return mtx, dist, newcameramtx, roi
 
 
 
 
-def handle_calibration(config):
+def handle_calibration(config, frame):
     """
     Handles the calibration of the cameras.
 
@@ -72,25 +94,20 @@ def handle_calibration(config):
                (mtx, dst, new_mtx, roi)
     """
 
-    mtx, dst = None, None
+    mtx, dist, newcameramtx, roi = None, None, None, None
     if not config.get("calibrate_camera", False):
-        return mtx, dst
+        return mtx, dist, newcameramtx, roi
     calibration_folder = config.get("calibration_folder", [])
     if len(calibration_folder) < 1:
         logger.error("No calibration folder supplied. Please check config.yaml.")
-        return mtx, dst
-    
-    def calibrate_and_log(folder):
-        folder_path = os.path.abspath(folder)
-        logger.info(f"Calibrating camera using {folder_path}")
-        return calibrate_camera(folder_path)
+        return mtx, dist, newcameramtx, roi
 
-    mtx, dst = calibrate_and_log(calibration_folder[0])
-    return mtx, dst
+    mtx, dist, newcameramtx, roi = calibrate_camera(os.path.abspath((calibration_folder[0])), frame)
+    return mtx, dist, newcameramtx, roi
 
 
 
-def undistort_camera(config, frame, mtx, dst):
+def undistort_camera(config, frame, mtx, dist, newcameramtx, roi):
     """
     Undistorts the input frames using the camera calibration parameters.
 
@@ -98,21 +115,25 @@ def undistort_camera(config, frame, mtx, dst):
         config (dict): Configuration dictionary containing calibration settings.
         frame (numpy.ndarray): The frame from camera.
         mtx (numpy.ndarray): Camera matrix for camera.
-        dst (numpy.ndarray): Distortion coefficients for camera.
+        dist (numpy.ndarray): Distortion coefficients for camera.
+        newcameramtx (numpy.ndarray): New camera matrix for camera.
+        roi (tuple): Region of interest after undistortion.
 
     Returns:
-        tuple: The undistorted frames.
+        numpy.ndarray: The undistorted frame.
     """
-    def undistort_frame(frame, mtx, dst):
-        if frame is None or mtx is None or dst is None:
+    if config.get("calibrate_camera", False):
+        logger.info(f"{frame.shape}")
+        if frame is None or mtx is None or dist is None:
+            logging.warning("Frame, mtx, or dist is none. Cannot undistort.")
             return frame
-        h, w = frame.shape[:2]
-        new_camera_mtx, _ = cv2.getOptimalNewCameraMatrix(mtx, dst, (w, h), 1, (w, h))
-        undistorted_frame = cv2.undistort(frame, mtx, dst, None, new_camera_mtx)
-        return undistorted_frame
+        undistorted_frame = cv2.undistort(frame, mtx, dist, None, newcameramtx)
 
-    if config.get("calibrate_cameras", False):
-        frame = undistort_frame(frame, mtx, dst)
+        # Crop the image to the ROI
+        x, y, w, h = roi
+        cropped_frame = undistorted_frame[y:y+h, x:x+w]
+        logger.info("Undistorted frame.")
+        return cropped_frame
 
     return frame
 
@@ -159,7 +180,7 @@ def save_table_points(table_pts, file_path="config/table_points.json"):
     logger.info(f"Table points saved to {file_path}")
 
 
-def manage_point_selection(config, camera, mtx, dst):
+def manage_point_selection(config, frame, mtx, dist, newcameramtx, roi):
     table_pts = load_table_points()
 
     if table_pts is None:
@@ -171,14 +192,7 @@ def manage_point_selection(config, camera, mtx, dst):
         logger.info("Select 4 points for Camera (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
 
         while len(table_pts) < 4:
-            if isinstance(camera, WebcamVideoStream):
-                frame = camera.read()
-                if frame is None:
-                    logger.error("Failed to grab frame from Camera")
-                    return None
-            else:
-                frame = camera
-            frame = undistort_camera(config, frame, mtx, dst)
+            #undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
             
             display_frame = frame.copy()
 
