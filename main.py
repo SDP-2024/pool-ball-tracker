@@ -48,21 +48,6 @@ def main():
     if args.set_points:
         reset_points()
     
-    # Calibrate cameras
-    mtx, dst = handle_calibration(config)
-    camera = load_cameras(config)
-
-    # Allow cameras to warm up
-    time.sleep(2.0)
-        
-    # Read frames
-    frame = camera.read()
-
-    # Set up coordinate system for the cropped frames
-    table_pts = manage_point_selection(config, camera, mtx, dst)
-    frame = get_top_down_view(frame,table_pts)
-    logger.info(frame.shape)
-
     # If networking is enabled, start the server
     network = None
     if config.get("use_networking", False):
@@ -74,6 +59,25 @@ def main():
 
     detection_model = DetectionModel(config)
 
+    if args.file is not None:
+        frame = cv2.imread(args.file)
+    else:
+        camera = load_camera(config)
+        # Read frames
+        ret, frame = camera.read()
+        if not ret:
+            logger.error("Error reading camera frame.")
+            return
+
+    mtx, dist, newcameramtx, roi = handle_calibration(config, frame)
+    undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
+
+    table_pts = manage_point_selection(config, undistorted_frame, mtx, dist, newcameramtx, roi)
+
+    # Set up coordinate system for the cropped frames
+    if not args.no_tdv:
+        undistorted_frame = get_top_down_view(undistorted_frame,table_pts)
+
     autoencoder = None
     if not args.collect_ae_data:
         autoencoder = AutoEncoder(config)
@@ -82,37 +86,37 @@ def main():
     
     
     # Process the frames
+    updated = False
     while True:
         # Read frames
-        frame = camera.read()
+        if args.file is None:
+            ret, frame = camera.read()
+            if frame is None:
+                logger.error("Camera frame is invalid.")
+                continue 
 
+        undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
 
-        if frame is None:
-            logger.error("Camera frame is invalid.")
-            continue 
-
-        # Get top-down view of the table
-        frame = undistort_camera(config, frame, mtx, dst)
-        frame = get_top_down_view(frame, table_pts)
+        if not args.no_tdv:
+            # Get top-down view of the table
+            undistorted_frame = get_top_down_view(undistorted_frame, table_pts)
         
-        # Fix any distortion in the camera, after getting top down view
-
         if args.collect_ae_data: # Collect data for autoencoder
-            capture_frame(config, frame)
+            capture_frame(config, undistorted_frame)
         if args.collect_model_images:
-            capture_frame_for_training(config, frame)
+            capture_frame_for_training(config, undistorted_frame)
 
-        drawing_frame = frame.copy()
+        drawing_frame = undistorted_frame.copy()
 
         # Detect and draw balls to frame
-        detected_balls, labels = detection_model.detect(frame)
+        detected_balls, labels, _ = detection_model.detect(undistorted_frame)
         detection_model.draw(drawing_frame, detected_balls)
 
         state_manager.update(detected_balls, labels)
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data and not args.no_anomaly:
-            table_only = detection_model.extract_bounding_boxes(frame, detected_balls)
+            table_only = detection_model.extract_bounding_boxes(undistorted_frame, detected_balls)
             is_anomaly = autoencoder.detect_anomaly(table_only)
             if network and is_anomaly:
                 network.send_obstruction("true")
@@ -122,7 +126,8 @@ def main():
             break
 
     # Cleanup
-    camera.stop()
+    if args.file is None:
+        camera.release()
     cv2.destroyAllWindows()
     if config["use_networking"]:
         network.disconnect()
@@ -178,14 +183,30 @@ def parse_args():
         default=False
     )
 
+    parser.add_argument(
+        "--file",
+        type=str,
+        default=None,
+        help="The path to the image file."
+    )
+
+    parser.add_argument(
+        "--no-tdv",
+        action="store_true",
+        default=False,
+        help="Disable top-down view."
+    )
+
     return parser.parse_args()
 
-def load_cameras(config):
+def load_camera(config):
     # Attempt to load cameras
     try:
         logger.info("Starting camera...")
-        camera = VideoStream(config["camera_port"]).start()
-        logger.info("Camera started.")
+        camera = cv2.VideoCapture(config["camera_port"], cv2.CAP_MSMF)
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        time.sleep(2.0)  # Allow camera to warm up
         return camera
     except Exception as e:
         logger.error(f"Error starting camera: {e}")
