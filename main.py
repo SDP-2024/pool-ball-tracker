@@ -64,21 +64,19 @@ def main():
     else:
         camera = load_camera(config)
         # Read frames
-        frame = camera.read()
+        ret, frame = camera.read()
+        if not ret:
+            logger.error("Error reading camera frame.")
+            return
 
     mtx, dist, newcameramtx, roi = handle_calibration(config, frame)
     undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
 
-    logger.info(undistorted_frame.shape)
-    # Attempt to detect holes, fallback to manual selection if fails
-    detected_balls, labels, ball_counts = detection_model.detect(undistorted_frame)
     table_pts = manage_point_selection(config, undistorted_frame, mtx, dist, newcameramtx, roi)
 
     # Set up coordinate system for the cropped frames
     if not args.no_tdv:
         undistorted_frame = get_top_down_view(undistorted_frame,table_pts)
-    logger.info(undistorted_frame.shape)
-
 
     autoencoder = None
     if not args.collect_ae_data:
@@ -92,7 +90,7 @@ def main():
     while True:
         # Read frames
         if args.file is None:
-            frame = camera.read()
+            ret, frame = camera.read()
             if frame is None:
                 logger.error("Camera frame is invalid.")
                 continue 
@@ -111,18 +109,10 @@ def main():
         drawing_frame = undistorted_frame.copy()
 
         # Detect and draw balls to frame
-        detected_balls, labels, ball_counts = detection_model.detect(undistorted_frame)
+        detected_balls, labels, _ = detection_model.detect(undistorted_frame)
         detection_model.draw(drawing_frame, detected_balls)
 
         state_manager.update(detected_balls, labels)
-
-        # If the corners are found, then update the table points so that the top-down view can be updated
-        if not updated and state_manager.corners_found:
-            table_pts = state_manager.corners
-            #frame = get_top_down_view(frame, table_pts)
-            state_manager.origin_set = False # Reset origin
-            logging.info("Updated table points.")
-            updated = True
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data and not args.no_anomaly:
@@ -137,7 +127,7 @@ def main():
 
     # Cleanup
     if args.file is None:
-        camera.stop()
+        camera.release()
     cv2.destroyAllWindows()
     if config["use_networking"]:
         network.disconnect()
@@ -213,7 +203,9 @@ def load_camera(config):
     # Attempt to load cameras
     try:
         logger.info("Starting camera...")
-        camera = VideoStream(config["camera_port"]).start()
+        camera = cv2.VideoCapture(config["camera_port"], cv2.CAP_MSMF)
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         time.sleep(2.0)  # Allow camera to warm up
         return camera
     except Exception as e:

@@ -5,23 +5,23 @@ import numpy as np
 import os
 import logging
 import json
-from imutils.video import VideoStream, WebcamVideoStream
 
 logger = logging.getLogger(__name__)
 
 def calibrate_camera(path, frame):
     """
-    Calibrates a camera using a set of images of a chessboard pattern.
+    Calibrates a camera using a set of images of a Charuco board pattern.
 
     Args:
         path (str): Path to the images used for calibration.
-        chessboard_size (tuple, optional): The number of internal corners in the chessboard pattern 
-                                           as (columns, rows). Defaults to (8, 5).
+        frame (numpy.ndarray): A frame from the camera to get the image size.
 
     Returns:
         tuple: A tuple containing:
             - mtx (np.ndarray): The camera matrix.
             - dist (np.ndarray): The distortion coefficients.
+            - newcameramtx (np.ndarray): The optimized camera matrix.
+            - roi (tuple): The region of interest after undistortion.
     """
 
     if os.path.exists("./camera_calibration.json"):
@@ -30,7 +30,6 @@ def calibrate_camera(path, frame):
             data = json.load(json_file)
         mtx = np.array(data["mtx"])
         dist = np.array(data["dist"])
-        logging.info(f"mtx: {mtx}, dist: {dist}")
         h,  w = frame.shape[:2]
         newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
         return mtx, dist, newcameramtx, roi
@@ -84,14 +83,15 @@ def calibrate_camera(path, frame):
 
 def handle_calibration(config, frame):
     """
-    Handles the calibration of the cameras.
+    Handles the calibration of the camera.
 
     Args:
         config (dict): Configuration dictionary containing calibration parameters.
+        frame (numpy.ndarray): A frame from the camera to get the image size.
 
     Returns:
         tuple: Contains the camera matrices, distortion coefficients, optimized matrices, and ROI.
-               (mtx, dst, new_mtx, roi)
+               (mtx, dist, newcameramtx, roi)
     """
 
     mtx, dist, newcameramtx, roi = None, None, None, None
@@ -123,7 +123,6 @@ def undistort_camera(config, frame, mtx, dist, newcameramtx, roi):
         numpy.ndarray: The undistorted frame.
     """
     if config.get("calibrate_camera", False):
-        logger.info(f"{frame.shape}")
         if frame is None or mtx is None or dist is None:
             logging.warning("Frame, mtx, or dist is none. Cannot undistort.")
             return frame
@@ -132,7 +131,6 @@ def undistort_camera(config, frame, mtx, dist, newcameramtx, roi):
         # Crop the image to the ROI
         x, y, w, h = roi
         cropped_frame = undistorted_frame[y:y+h, x:x+w]
-        logger.info("Undistorted frame.")
         return cropped_frame
 
     return frame
