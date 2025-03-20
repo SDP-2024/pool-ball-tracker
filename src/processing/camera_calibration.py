@@ -4,6 +4,7 @@ import numpy as np
 import os
 import logging
 import json
+from imutils.video import VideoStream, WebcamVideoStream
 
 logger = logging.getLogger(__name__)
 
@@ -170,12 +171,15 @@ def manage_point_selection(config, camera, mtx, dst):
         logger.info("Select 4 points for Camera (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
 
         while len(table_pts) < 4:
-            frame = camera.read()
+            if isinstance(camera, WebcamVideoStream):
+                frame = camera.read()
+                if frame is None:
+                    logger.error("Failed to grab frame from Camera")
+                    return None
+            else:
+                frame = camera
             frame = undistort_camera(config, frame, mtx, dst)
-            if frame is None:
-                logger.error("Failed to grab frame from Camera")
-                return None
-
+            
             display_frame = frame.copy()
 
             for pt in table_pts:
