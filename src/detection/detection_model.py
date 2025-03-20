@@ -86,7 +86,7 @@ class DetectionModel:
         filtered_results = results[0]
         filtered_results.boxes = filtered_boxes
         
-        return (filtered_results,), self.labels
+        return (filtered_results,), self.labels, ball_counts
     
 
     def draw(self, frame, detected_balls):
