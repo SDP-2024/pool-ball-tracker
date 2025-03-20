@@ -12,12 +12,6 @@ class StateManager:
         self.time_between_updates = self.config["network_update_interval"]
         self.time_since_last_update = time.time() - self.time_between_updates
         self.end_of_turn = False
-        self.origin_set = False
-        self.origin_offset = (0,0)
-        self.holes_found = False
-        self.holes = []
-        self.corners = []
-        self.corners_found = False
 
     # TODO: Handle balls that are missed for a few frames by detection
     def update(self, data, labels):
@@ -45,34 +39,14 @@ class StateManager:
             classidx = int(ball.cls.item())
             classname = labels[classidx]
 
-            # Check if the origin is set and if not then check if all holes are found
-            # If all holes are found then identify the corners
-            # Then set the origin to the top left corner
-            if not self.origin_set and classname == "hole":
-                middlex = int((xmin + xmax) // 2)
-                middley = int((ymin + ymax) // 2)
-                if not self.holes_found:
-                    self.holes.append((middlex, middley))
-                    if len(self.holes) == 6:
-                        self.holes_found = True
-                        self.order_holes()
-                        self.corners = np.array([self.holes[0], self.holes[2], self.holes[3], self.holes[5]], dtype=np.float32)
-                        self.corners_found = True
-                        logger.info(f"Corners found: {self.corners_found}")
-                elif (middlex - 100) < 0 and (middley - 100) < 0:
-                    self.origin_offset = (middlex, middley)
-                    logger.info(f"Origin set to: {self.origin_offset}")
-                    self.origin_set = True
-
-
             # Ignore arm and hole
             if classname == "arm" or classname == "hole":
                 continue
 
             num_balls += 1
 
-            middlex = int((xmin + xmax) // 2) - self.origin_offset[0]
-            middley = int((ymin + ymax) // 2) - self.origin_offset[1]
+            middlex = int((xmin + xmax) // 2)
+            middley = int((ymin + ymax) // 2)
 
             # Check if this ball is close to a previous position
             if self.previous_state and classname in self.previous_state:
@@ -111,20 +85,3 @@ class StateManager:
                 self.network.send_balls({"balls": balls})
 
 
-    def order_holes(self):
-        """
-        Orders the holes in the following order:
-        1 2 3
-        4 5 6
-        """
-        if len(self.holes) != 6:
-            logger.error("Holes not found.")
-            return
-
-        # Sort by y first
-        self.holes.sort(key=lambda x: x[1])
-        # Sort by x for each row
-        self.holes[:3] = sorted(self.holes[:3], key=lambda x: x[0])
-        self.holes[3:] = sorted(self.holes[3:], key=lambda x: x[0])
-
-        logger.info("Ordered holes: %s", self.holes)

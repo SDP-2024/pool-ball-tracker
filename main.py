@@ -86,7 +86,6 @@ def main():
     
     
     # Process the frames
-    updated = False
     while True:
         # Read frames
         if args.file is None:
