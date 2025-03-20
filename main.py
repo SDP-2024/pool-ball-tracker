@@ -48,21 +48,6 @@ def main():
     if args.set_points:
         reset_points()
     
-    # Calibrate cameras
-    mtx, dst = handle_calibration(config)
-    camera = load_cameras(config)
-
-    # Allow cameras to warm up
-    time.sleep(2.0)
-        
-    # Read frames
-    frame = camera.read()
-
-    # Set up coordinate system for the cropped frames
-    table_pts = manage_point_selection(config, camera, mtx, dst)
-    frame = get_top_down_view(frame,table_pts)
-    logger.info(frame.shape)
-
     # If networking is enabled, start the server
     network = None
     if config.get("use_networking", False):
@@ -73,6 +58,32 @@ def main():
         state_manager = StateManager(config)
 
     detection_model = DetectionModel(config)
+    # Calibrate cameras
+    mtx, dst = handle_calibration(config)
+    if args.file is not None:
+        frame = cv2.imread(args.file)
+        logger.info("Loaded image.")
+        # Attempt to detect holes, fallback to manual selection if fails
+        detected_balls, labels, ball_counts = detection_model.detect(frame)
+        if ball_counts["hole"] == 6:
+            state_manager.update(detected_balls, labels)
+            table_pts = state_manager.corners
+        else:
+            table_pts = manage_point_selection(config, frame, mtx, dst)
+
+    else:
+        camera = load_cameras(config)
+        # Allow cameras to warm up
+        time.sleep(2.0)
+        # Read frames
+        frame = camera.read()
+        table_pts = manage_point_selection(config, camera, mtx, dst)
+
+    # Set up coordinate system for the cropped frames
+    if not args.no_tdv:
+        frame = get_top_down_view(frame,table_pts)
+    logger.info(frame.shape)
+
 
     autoencoder = None
     if not args.collect_ae_data:
@@ -84,18 +95,16 @@ def main():
     # Process the frames
     while True:
         # Read frames
-        frame = camera.read()
-
-
-        if frame is None:
-            logger.error("Camera frame is invalid.")
-            continue 
-
-        # Get top-down view of the table
-        frame = undistort_camera(config, frame, mtx, dst)
-        frame = get_top_down_view(frame, table_pts)
+        if args.file is None:
+            frame = camera.read()
+            if frame is None:
+                logger.error("Camera frame is invalid.")
+                continue 
+            frame = undistort_camera(config, frame, mtx, dst)
+            if not args.no_tdv:
+                # Get top-down view of the table
+                frame = get_top_down_view(frame, table_pts)
         
-        # Fix any distortion in the camera, after getting top down view
 
         if args.collect_ae_data: # Collect data for autoencoder
             capture_frame(config, frame)
@@ -105,7 +114,7 @@ def main():
         drawing_frame = frame.copy()
 
         # Detect and draw balls to frame
-        detected_balls, labels = detection_model.detect(frame)
+        detected_balls, labels, ball_counts = detection_model.detect(frame)
         detection_model.draw(drawing_frame, detected_balls)
 
         state_manager.update(detected_balls, labels)
@@ -122,7 +131,8 @@ def main():
             break
 
     # Cleanup
-    camera.stop()
+    if args.file is None:
+        camera.stop()
     cv2.destroyAllWindows()
     if config["use_networking"]:
         network.disconnect()
@@ -176,6 +186,20 @@ def parse_args():
         "--debug",
         action="store_true",
         default=False
+    )
+
+    parser.add_argument(
+        "--file",
+        type=str,
+        default=None,
+        help="The path to the image file."
+    )
+
+    parser.add_argument(
+        "--no-tdv",
+        action="store_true",
+        default=False,
+        help="Disable top-down view."
     )
 
     return parser.parse_args()
