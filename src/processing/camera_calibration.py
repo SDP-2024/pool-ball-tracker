@@ -8,7 +8,7 @@ import json
 
 logger = logging.getLogger(__name__)
 
-def calibrate_camera(path, frame):
+def calibrate_camera(in_path, frame, out_path="./src/processing/camera_calibration.json"):
     """
     Calibrates a camera using a set of images of a Charuco board pattern.
 
@@ -24,9 +24,10 @@ def calibrate_camera(path, frame):
             - roi (tuple): The region of interest after undistortion.
     """
 
-    if os.path.exists("./camera_calibration.json"):
+    # Loads calibration information if it already exists
+    if os.path.exists(out_path):
         logger.info("Camera calibration already exists. Skipping calibration.")
-        with open("./camera_calibration.json", "r") as json_file:
+        with open(out_path, "r") as json_file:
             data = json.load(json_file)
         mtx = np.array(data["mtx"])
         dist = np.array(data["dist"])
@@ -34,49 +35,59 @@ def calibrate_camera(path, frame):
         newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
         return mtx, dist, newcameramtx, roi
     
-    logger.info("Calibrating camera...")
+    logger.info("Calibration data not found, calibrating camera.")
+
     # Define Charuco board
     ARUCO_DICT = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
     board = aruco.CharucoBoard((6, 8), 34, 27, ARUCO_DICT)
 
-
     params = cv2.aruco.DetectorParameters()
     detector = cv2.aruco.ArucoDetector(ARUCO_DICT, params)
 
-    all_charuco_ids = []
-    all_charuco_corners = []
-    images = glob.glob(os.path.join(path, "*.jpg"))
+    # Get images
+    images = glob.glob(os.path.join(in_path, "*.jpg"))
+    image = cv2.imread(images[0])
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    imgSize = image.shape
 
-    # Loop over images and extraction of corners
-    for image_file in images:
-        image = cv2.imread(image_file)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        imgSize = image.shape
-        image_copy = image.copy()
-        marker_corners, marker_ids, rejectedCandidates = detector.detectMarkers(image)
-        
-        if len(marker_ids) > 0: # If at least one marker is detected
-            # cv2.aruco.drawDetectedMarkers(image_copy, marker_corners, marker_ids)
-            ret, charucoCorners, charucoIds = cv2.aruco.interpolateCornersCharuco(marker_corners, marker_ids, image, board)
-
-            if charucoIds is not None and len(charucoCorners) > 3:
-                all_charuco_corners.append(charucoCorners)
-                all_charuco_ids.append(charucoIds)
+    # Extract charuco corners and ids from images
+    all_charuco_ids, all_charuco_corners = get_charuco_corners_and_ids(images, detector, board)
 
     # Calibrate camera with extracted information
-    result, mtx, dist, rvecs, tvecs = cv2.aruco.calibrateCameraCharuco(all_charuco_corners, all_charuco_ids, board, imgSize, None, None)
-
-    OUTPUT_JSON = "./camera_calibration.json"
+    _, mtx, dist, _, _ = cv2.aruco.calibrateCameraCharuco(all_charuco_corners, all_charuco_ids, board, imgSize, None, None)
 
     data = {"mtx": mtx.tolist(), "dist": dist.tolist()}
 
-    with open(OUTPUT_JSON, 'w') as json_file:
+    with open(out_path, 'w') as json_file:
         json.dump(data, json_file, indent=4)
     logging.info("Calibration data saved to camera_calibration.json")
     h,  w = image.shape[:2]
     newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
 
     return mtx, dist, newcameramtx, roi
+
+
+def get_charuco_corners_and_ids(images, detector, board):
+    """
+    Helper function to extract all the charuco ids and corners from the images
+    """
+    all_charuco_ids = []
+    all_charuco_corners = []
+    # Loop over images and extraction of corners
+    for image_file in images:
+        image = cv2.imread(image_file)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        marker_corners, marker_ids, _ = detector.detectMarkers(image)
+        
+        # Ensure enough markers are detected
+        if len(marker_ids) > 0:
+            _, charucoCorners, charucoIds = cv2.aruco.interpolateCornersCharuco(marker_corners, marker_ids, image, board)
+
+            if charucoIds is not None and len(charucoCorners) > 3:
+                all_charuco_corners.append(charucoCorners)
+                all_charuco_ids.append(charucoIds)
+
+    return all_charuco_ids, all_charuco_corners
 
 
 
@@ -97,12 +108,12 @@ def handle_calibration(config, frame):
     mtx, dist, newcameramtx, roi = None, None, None, None
     if not config.get("calibrate_camera", False):
         return mtx, dist, newcameramtx, roi
-    calibration_folder = config.get("calibration_folder", [])
+    calibration_folder = config.get("calibration_folder", "")
     if len(calibration_folder) < 1:
         logger.error("No calibration folder supplied. Please check config.yaml.")
         return mtx, dist, newcameramtx, roi
 
-    mtx, dist, newcameramtx, roi = calibrate_camera(os.path.abspath((calibration_folder[0])), frame)
+    mtx, dist, newcameramtx, roi = calibrate_camera(os.path.abspath((calibration_folder)), frame)
     return mtx, dist, newcameramtx, roi
 
 
@@ -138,7 +149,11 @@ def undistort_camera(config, frame, mtx, dist, newcameramtx, roi):
 
 
 
-def select_points(event, x, y, flags, param):
+def select_points(event, x, y, _, param):
+    """
+    Function to select the points on the frame, a callback from manage_point_selection
+    """
+
     table_pts = param  # Get the list from param
 
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -151,6 +166,15 @@ def select_points(event, x, y, flags, param):
 
 
 def load_table_points(file_path="config/table_points.json"):
+    """
+    Loads the table points from the saved file.
+
+    Args:
+        file_path (str, optional): The file to load the points from. Defaults to "config/table_points.json".
+
+    Returns:
+        numpy.array: An array of the saved points
+    """
     if not os.path.exists(file_path):
         logger.warning(f"{file_path} not found. Points need to be selected manually.")
         return None
@@ -169,6 +193,13 @@ def load_table_points(file_path="config/table_points.json"):
 
 
 def save_table_points(table_pts, file_path="config/table_points.json"):
+    """
+    Save the table points to a file so they can be loaded next time the program is run
+
+    Args:
+        table_pts (list): The table points as a list to be saved
+        file_path (str, optional): The optional path for saving the points to. Defaults to "config/table_points.json".
+    """
     data = {
         "table_pts": [list(pt) for pt in table_pts],
     }
@@ -178,19 +209,27 @@ def save_table_points(table_pts, file_path="config/table_points.json"):
     logger.info(f"Table points saved to {file_path}")
 
 
-def manage_point_selection(config, frame, mtx, dist, newcameramtx, roi):
-    table_pts = load_table_points()
+def manage_point_selection(frame):
+    """
+    Manages the point selection for cropping the view of the pool table.
 
-    if table_pts is None:
+    Args:
+        frame (numpy.ndarray): The static frame to be cropped
+
+    Returns:
+        numpy.array: The array of table points
+    """
+    sorted_pts = load_table_points()
+
+    if sorted_pts is None:
         table_pts = []
 
         cv2.namedWindow("Point Selection")
         cv2.setMouseCallback("Point Selection", select_points, param=table_pts)
 
-        logger.info("Select 4 points for Camera (Top-Left, Top-Right, Bottom-Left, Bottom-Right)")
+        logger.info("Select 4 points for Camera")
 
         while len(table_pts) < 4:
-            #undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
             
             display_frame = frame.copy()
 
@@ -202,8 +241,29 @@ def manage_point_selection(config, frame, mtx, dist, newcameramtx, roi):
             if key == ord('q'):
                 logger.info("Point selection aborted by user.")
                 return None
-
-        save_table_points(table_pts)
+            
+        # Sort the table points in to the correct order
+        sorted_pts = sort_points(table_pts)
+        save_table_points(sorted_pts)
         cv2.destroyWindow("Point Selection")
 
-    return np.array(table_pts, dtype=np.float32)
+    return np.array(sorted_pts, dtype=np.float32)
+
+
+def sort_points(table_pts):
+    """
+    Sorts the points in the order: top-left, top-right, bottom-left, bottom-right.
+
+    Args:
+        table_pts (list): List of points to be sorted.
+
+    Returns:
+        list: Sorted list of points.
+    """
+    # Sort by y-coordinate (top to bottom)
+    table_pts = sorted(table_pts, key=lambda x: x[1])
+    top_pts = sorted(table_pts[:2], key=lambda x: x[0])
+    bottom_pts = sorted(table_pts[2:], key=lambda x: x[0])
+    sorted_pts = [top_pts[0], top_pts[1], bottom_pts[0], bottom_pts[1]]
+    
+    return sorted_pts
