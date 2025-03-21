@@ -16,6 +16,7 @@ class Network:
             logger.info("Connected to server.")
             self.sio.emit("join", "ballPositions")
             self.sio.emit("join", "obstructionDetected")
+            self.sio.emit("join", "endOfTurn")
 
         @self.sio.event
         def disconnect():

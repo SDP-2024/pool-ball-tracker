@@ -2,8 +2,6 @@ import cv2
 import argparse
 import time
 import logging
-import threading
-from imutils.video import VideoStream
 from random import randint
 
 from config.config_manager import load_config, create_profile
@@ -28,7 +26,7 @@ logging.basicConfig(
 # Main function
 def main():
     """
-    Main function for initializing and running the ball and table detection system.
+    Main function for running the pool-pal computer vision system
     """
 
     args = parse_args()
@@ -43,6 +41,7 @@ def main():
         logger.error("Error getting config file.")
         return
 
+    # Process optional arguments
     if args.collect_ae_data:
         reset_ae_data(config)
     if args.set_points:
@@ -57,8 +56,10 @@ def main():
     else:
         state_manager = StateManager(config)
 
+    # Initialise detection model
     detection_model = DetectionModel(config)
 
+    # Process either static image or a live webcam feed
     if args.file is not None:
         frame = cv2.imread(args.file)
     else:
@@ -69,15 +70,24 @@ def main():
             logger.error("Error reading camera frame.")
             return
 
+    # Calibrate camera and undistort
     mtx, dist, newcameramtx, roi = handle_calibration(config, frame)
     undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
 
-    table_pts = manage_point_selection(config, undistorted_frame, mtx, dist, newcameramtx, roi)
+    # Select points and compute homography
+    table_pts = manage_point_selection(undistorted_frame)
+    table_rect = np.float32([
+        [0, 0], 
+        [config["output_width"], 0], 
+        [0, config["output_height"]], 
+        [config["output_width"], config["output_height"]]
+    ])
+    homography_matrix = cv2.getPerspectiveTransform(table_pts,table_rect)
 
-    # Set up coordinate system for the cropped frames
     if not args.no_tdv:
-        undistorted_frame = get_top_down_view(undistorted_frame,table_pts)
+        undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
 
+    # Initialise autoencoder
     autoencoder = None
     if not args.collect_ae_data:
         autoencoder = AutoEncoder(config)
@@ -86,37 +96,40 @@ def main():
     
     
     # Process the frames
-    updated = False
     while True:
-        # Read frames
+        # Read frame frmo file or webcam
         if args.file is None:
             ret, frame = camera.read()
             if frame is None:
                 logger.error("Camera frame is invalid.")
                 continue 
-
+        
+        # Undistort camera
         undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
 
+        # Get top-down view of the table
         if not args.no_tdv:
-            # Get top-down view of the table
-            undistorted_frame = get_top_down_view(undistorted_frame, table_pts)
+            undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
         
-        if args.collect_ae_data: # Collect data for autoencoder
+        # Process optional arguments
+        if args.collect_ae_data: 
             capture_frame(config, undistorted_frame)
         if args.collect_model_images:
             capture_frame_for_training(config, undistorted_frame)
 
+        # Copy frame for drawing
         drawing_frame = undistorted_frame.copy()
 
-        # Detect and draw balls to frame
-        detected_balls, labels, _ = detection_model.detect(undistorted_frame)
-        detection_model.draw(drawing_frame, detected_balls)
+        # Detect and draw to frame
+        detections, labels= detection_model.detect(undistorted_frame)
+        detection_model.draw(drawing_frame, detections)
 
-        state_manager.update(detected_balls, labels)
+        # Update state
+        state_manager.update(detections, labels)
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data and not args.no_anomaly:
-            table_only = detection_model.extract_bounding_boxes(undistorted_frame, detected_balls)
+            table_only = detection_model.extract_bounding_boxes(undistorted_frame, detections)
             is_anomaly = autoencoder.detect_anomaly(table_only)
             if network and is_anomaly:
                 network.send_obstruction("true")
@@ -199,6 +212,7 @@ def parse_args():
 
     return parser.parse_args()
 
+
 def load_camera(config):
     # Attempt to load cameras
     try:
@@ -211,7 +225,8 @@ def load_camera(config):
     except Exception as e:
         logger.error(f"Error starting camera: {e}")
         return
-    
+
+
 def capture_frame_for_training(config, frame):
     path=f"./{config['model_training_path']}"
     if not os.path.exists(path):
@@ -223,6 +238,7 @@ def capture_frame_for_training(config, frame):
         cv2.imwrite(filename, frame)
         time.sleep(0.1)
         logger.info(f"Image {num} saved")
+
 
 def capture_frame(config, frame):
     path = f"./{config['clean_images_path']}"
@@ -236,12 +252,14 @@ def capture_frame(config, frame):
         time.sleep(0.1)
         logger.info(f"Image {num} saved")
 
+
 def reset_ae_data(config):
     path = f"./{config['clean_images_path']}/"
     if os.path.exists(path):
         for file in os.listdir(path):
             os.remove(path + file)
         logger.info("Data reset.")
+
 
 def reset_points():
     path = "./config/table_points.json"
