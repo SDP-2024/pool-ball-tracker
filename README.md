@@ -38,6 +38,14 @@ python main.py
 
 - This will create a default configuration file and profile.
 
+### **Point Selection**
+
+For best results, please select the points as close as you can to the image below.
+
+![Ideal points for corner selection](./images/ideal_points.jpg "Ideal Points")
+
+This will ensure that only the surface area of the pool table is tracked, leading to accurate coordinates of detected balls.
+
 ### **Configuration**
 
 Modify `config.yaml` to adjust settings such as:
