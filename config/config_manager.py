@@ -14,10 +14,7 @@ schema = {
     "schema": {  # Define the structure for each profile
         "camera_port" : {"type": "integer", "min": 0},
         "calibrate_camera": {"type": "boolean"},
-        "calibration_folder": {
-            "type" : "list", 
-            "schema": {"type" : "string", "min" : 0}
-            },
+        "calibration_folder": {"type" : "string", "min" : 0},
         "font_color": {
             "type": "list",
             "schema": {"type": "integer", "min": 0, "max": 255},
@@ -36,7 +33,9 @@ schema = {
         "network_update_interval": {"type": "float", "min": 0.01},
         "position_threshold": {"type": "integer", "min": 0},
         "poolpal_url" : {"type": "string", "min": 0},
-        "poolpal_subdomain": {"type": "string", "min": 0}
+        "poolpal_subdomain": {"type": "string", "min": 0},
+        "output_width": {"type": "integer", "min": 0},
+        "output_height": {"type": "integer", "min": 0}
     },
 }
 
@@ -149,7 +148,7 @@ def create_profile(path="../config", name="default"):
     profiles[name] = {
             "camera_port" : 0,
             "calibrate_camera": False,
-            "calibration_folder": [],
+            "calibration_folder": "",
             "font_color": [255, 255, 255],
             "font_scale": 0.5,
             "font_thickness": 2,
@@ -163,7 +162,9 @@ def create_profile(path="../config", name="default"):
             "network_update_interval": 0.1,
             "position_threshold": 10,
             "poolpal_url": "https://pool-pal.serveo.net",
-            "poolpal_subdomain": "pool-pal"
+            "poolpal_subdomain": "pool-pal",
+            "output_width": 1200,
+            "output_height": 600,
         }
     
     try:
