@@ -130,8 +130,8 @@ class DetectionModel:
 
                 self.total_objects += 1
                 
-        cv2.putText(frame, f'Total number of objects: {self.total_objects}', (40,40), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
-        cv2.putText(frame, f'Total number of balls: {self.total_balls}', (40,60), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
+        cv2.putText(frame, f'Total number of objects: {self.total_objects}', (60,40), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
+        cv2.putText(frame, f'Total number of balls: {self.total_balls}', (60,60), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
         cv2.imshow("Detection", frame)
 
     
