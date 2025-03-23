@@ -156,13 +156,9 @@ def select_points(event, x, y, _, param):
 
     table_pts = param  # Get the list from param
 
-    if event == cv2.EVENT_LBUTTONDOWN:
+    if event == cv2.EVENT_LBUTTONDOWN and len(table_pts) < 4:
         table_pts.append((x, y))
         logger.info(f"Point selected: {(x, y)}")
-
-        if len(table_pts) == 4:
-            logger.info("All points selected!")
-            cv2.setMouseCallback("Point Selection", lambda *args: None)  # Disable further callbacks
 
 
 def load_table_points(file_path="config/table_points.json"):
@@ -229,15 +225,39 @@ def manage_point_selection(frame):
 
         logger.info("Select 4 points for Camera")
 
-        while len(table_pts) < 4:
-            
+        while True:
+                
             display_frame = frame.copy()
 
             for pt in table_pts:
                 cv2.circle(display_frame, pt, 5, (0, 0, 255), -1)
+                cv2.putText(display_frame, f"{pt}", (pt[0] + 10, pt[1] + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            
+            # Draw lines between all other points
+            if len(table_pts) < 4:
+                for i in range(1, len(table_pts)):
+                    cv2.line(display_frame, table_pts[i - 1], table_pts[i], (0, 0, 255), 2)
 
+            # Complete the rectangle        
+            if len(table_pts) == 4:
+                sorted_pts = sort_points(table_pts)
+                cv2.line(display_frame, sorted_pts[0], sorted_pts[1], (0, 0, 255), 2)
+                cv2.line(display_frame, sorted_pts[1], sorted_pts[3], (0, 0, 255), 2)
+                cv2.line(display_frame, sorted_pts[3], sorted_pts[2], (0, 0, 255), 2)
+                cv2.line(display_frame, sorted_pts[2], sorted_pts[0], (0, 0, 255), 2)
+                cv2.putText(display_frame, "Press Enter to confirm points", (frame.shape[1] // 2 - 150, frame.shape[0] // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            
             cv2.imshow("Point Selection", display_frame)
             key = cv2.waitKey(1) & 0xFF
+            
+            # Press enter key to confirm points if all are selected
+            if (key == ord('\n') or key == ord('\r')) and len(table_pts) == 4:
+                break
+            # Remove the most recent point if backspace pressed
+            if key == ord('\b') and len(table_pts) > 0:
+                logger.info(f"Point {table_pts[-1]} removed.")
+                table_pts.pop()
+                
             if key == ord('q'):
                 logger.info("Point selection aborted by user.")
                 return None
