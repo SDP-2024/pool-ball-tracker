@@ -67,7 +67,7 @@ def main():
         # Read frames
         ret, frame = camera.read()
         if not ret:
-            logger.error("Error reading camera frame.")
+            logger.error("Error reading camera frame. Exiting.")
             return
 
     # Calibrate camera and undistort
@@ -76,6 +76,10 @@ def main():
 
     # Select points and compute homography
     table_pts = manage_point_selection(undistorted_frame)
+    if table_pts is None:
+        logger.error("Table points not selected. Exiting.")
+        return
+    
     table_rect = np.float32([
         [0, 0], 
         [config["output_width"], 0], 
