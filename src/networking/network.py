@@ -23,7 +23,7 @@ class Network:
             logger.warning("Disconnected from server.")
             self.reconnect()
 
-    def reconnect(self):
+    def _reconnect(self):
         while True:
             try:
                 logger.info("Attempting to reconnect...")
@@ -42,37 +42,29 @@ class Network:
 
     def send_balls(self, balls):
         try:
-            logger.info("Sending balls: %s", balls)
+            logger.info(f"Sending balls: {balls}")
             self.sio.emit("ballPositions", balls)
             self.disconnect_counter = 0
         except Exception as e:
-            self.disconnect_counter += 1
-            logger.error("Failed to send ballPositions")
-            if self.disconnect_counter >= 10:
-                self.reconnect()
+            self._handle_error(e, "ballsPositions")
             pass
     
     def send_end_of_turn(self, end_of_turn):
         try:
-            logger.info("Sending end of turn: %s", end_of_turn)
+            logger.info(f"Sending end of turn: {end_of_turn}")
             self.sio.emit("endOfTurn", end_of_turn)
             self.disconnect_counter = 0
         except Exception as e:
-            self.disconnect_counter += 1
-            logger.error("Failed to send endOfTurn")
-            if self.disconnect_counter >= 10:
-                self.reconnect()
+            self._handle_error(e, "endOfTurn")
             pass
 
     def send_obstruction(self, obstruction_detected):
         try:
+            logger.info(f"Sending obstruction detected: {obstruction_detected}")
             self.sio.emit("obstructionDetected", obstruction_detected)
             self.disconnect_counter = 0
         except Exception as e:
-            self.disconnect_counter += 1
-            logger.error("Failed to send obstructionDetected")
-            if self.disconnect_counter >= 10:
-                self.reconnect()
+            self._handle_error(e, "obstructionDetected")
             pass
 
     def disconnect(self):
@@ -80,3 +72,15 @@ class Network:
 
     def start(self):
         threading.Thread(target=self.connect, daemon=True).start()
+
+    def reconnect(self):
+        threading.Thread(target=self._reconnect, daemon=True).start()
+
+    def _check_reconnect(self):
+        if self.disconnect_counter >= 10:
+                self.reconnect()
+
+    def _handle_error(self, e, name):
+        self.disconnect_counter += 1
+        logger.error(f"Failed to send {name}: {e}")
+        self._check_reconnect()
