@@ -83,8 +83,13 @@ class StateManager:
         xmin, ymin, xmax, ymax = map(int, xyxy.astype(int))
         classidx = int(ball.cls.item())
         classname = labels[classidx]
-        middlex = int((xmin + xmax) // 2)
-        middley = int((ymin + ymax) // 2)
+        _middlex = int((xmin + xmax) // 2)
+        _middley = int((ymin + ymax) // 2)
+        # Clamp to boundaries
+        middlex = self.config["output_width"] if _middlex > self.config["output_width"] else _middlex
+        middley = self.config["output_height"] if _middley > self.config["output_height"] else _middley
+        middlex = 0 if middlex < 0 else middlex
+        middley = 0 if middley < 0 else middley
 
         return classname, middlex, middley
     
