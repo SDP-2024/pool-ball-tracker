@@ -20,7 +20,7 @@ class DetectionModel:
         self.bbox_colors = [(0,0,255), (0,0,0), (0, 255, 0), (255,0,0), (255,255,255), (255,255,0)]
         self.total_objects = 0
         self.total_balls = 0
-        self.holes = [
+        self.hole_positions = [
             (0, 0),  # top-left
             (self.config["output_width"] // 2, 0),  # top-middle
             (self.config["output_width"], 0),  # top-right
@@ -28,6 +28,7 @@ class DetectionModel:
             (self.config["output_width"] // 2, self.config["output_height"]),  # bottom-middle
             (self.config["output_width"], self.config["output_height"])  # bottom-right
         ]
+        self.found_holes = []
 
 
     def load_model(self):
@@ -82,6 +83,8 @@ class DetectionModel:
         It also ensures that no extra objects can be detected.
         """
         filtered_results = []
+        # Reset found holes for each detection
+        self.found_holes = []
         counts = defaultdict(int)
         self.total_balls = 0
         for result, classname in all_results:
@@ -150,15 +153,26 @@ class DetectionModel:
         _, _, xmin, ymin, xmax, ymax = self._get_result_info(result)
         middlex = int((xmin + xmax) / 2)
         middley = int((ymin + ymax) / 2)
-        if self._is_near_hole(middlex, middley):
+        if self._hole_is_near_expected_position(middlex, middley) and not self._is_near_exsiting_hole(middlex, middley):
+            self.found_holes.append((middlex, middley))
             return True
         return False
     
-    def _is_near_hole(self, middlex, middley):
+    def _hole_is_near_expected_position(self, middlex, middley):
         """
-        Helper function to check if the position is near the hole.
+        Helper function to check if the hole is near an expected hole position.
         """
-        for hole_x, hole_y in self.holes:
+        for hole_x, hole_y in self.hole_positions:
+            if abs(middlex - hole_x) <= self.config["hole_threshold"] and abs(middley - hole_y) <= self.config["hole_threshold"]:
+                return True
+        return False
+    
+    def _is_near_exsiting_hole(self, middlex, middley):
+        """
+        Helper function to check if the position is near an existing hole.
+        This prevents one hole being detected multiple times.
+        """
+        for hole_x, hole_y in self.found_holes:
             if abs(middlex - hole_x) <= self.config["hole_threshold"] and abs(middley - hole_y) <= self.config["hole_threshold"]:
                 return True
         return False
