@@ -6,7 +6,7 @@ from random import randint
 
 from config.config_manager import load_config, create_profile
 from src.processing.camera_calibration import *
-from src.processing.frame_processing import *
+from src.processing.frame_processing import get_top_down_view
 from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
@@ -88,12 +88,11 @@ def main():
     ])
     homography_matrix = cv2.getPerspectiveTransform(table_pts,table_rect)
 
-    if not args.no_tdv:
-        undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
+    undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
 
     # Initialise autoencoder
     autoencoder = None
-    if not args.collect_ae_data:
+    if not args.collect_ae_data and not args.no_anomaly:
         autoencoder = AutoEncoder(config)
     if detection_model.model is None: # Check if model loaded successfully
         return
@@ -101,7 +100,7 @@ def main():
     
     # Process the frames
     while True:
-        # Read frame frmo file or webcam
+        # Read frame from file or webcam
         if args.file is None:
             ret, frame = camera.read()
             if frame is None:
@@ -112,8 +111,7 @@ def main():
         undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
 
         # Get top-down view of the table
-        if not args.no_tdv:
-            undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
+        undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
         
         # Process optional arguments
         if args.collect_ae_data: 
@@ -141,6 +139,8 @@ def main():
                 cv2.imshow("Detection", drawing_frame)
                 if network:
                     network.send_obstruction("true")
+                else:
+                    logger.info(f"Obstruction detected: {is_anomaly}")
 
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -209,13 +209,6 @@ def parse_args():
         type=str,
         default=None,
         help="The path to the image file."
-    )
-
-    parser.add_argument(
-        "--no-tdv",
-        action="store_true",
-        default=False,
-        help="Disable top-down view."
     )
 
     return parser.parse_args()
