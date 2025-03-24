@@ -18,7 +18,8 @@ profiles:
     autoencoder_model_path: "model/autoencoder_model.keras"
     network_update_interval: 0.5
     position_threshold: 3
-    poolpal_url: "https://pool-pal.serveo.net"
+    poolpal_url: "https://poolpal.joshn.uk"
     poolpal_subdomain: "pool-pal"
     output_width: 1200
     output_height: 600
+    hole_threshold: 30

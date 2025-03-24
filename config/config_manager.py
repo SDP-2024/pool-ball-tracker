@@ -35,7 +35,8 @@ schema = {
         "poolpal_url" : {"type": "string", "min": 0},
         "poolpal_subdomain": {"type": "string", "min": 0},
         "output_width": {"type": "integer", "min": 0},
-        "output_height": {"type": "integer", "min": 0}
+        "output_height": {"type": "integer", "min": 0},
+        "hole_threshold": {"type": "integer", "min": 0},
     },
 }
 
@@ -165,6 +166,7 @@ def create_profile(path="../config", name="default"):
             "poolpal_subdomain": "pool-pal",
             "output_width": 1200,
             "output_height": 600,
+            "hole_threshold": 30,
         }
     
     try:

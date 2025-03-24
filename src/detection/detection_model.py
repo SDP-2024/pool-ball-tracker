@@ -20,7 +20,14 @@ class DetectionModel:
         self.bbox_colors = [(0,0,255), (0,0,0), (0, 255, 0), (255,0,0), (255,255,255), (255,255,0)]
         self.total_objects = 0
         self.total_balls = 0
-        self.track_history = defaultdict(lambda: [])
+        self.holes = [
+            (0, 0),  # top-left
+            (self.config["output_width"] // 2, 0),  # top-middle
+            (self.config["output_width"], 0),  # top-right
+            (0, self.config["output_height"]),  # bottom-left
+            (self.config["output_width"] // 2, self.config["output_height"]),  # bottom-middle
+            (self.config["output_width"], self.config["output_height"])  # bottom-right
+        ]
 
 
     def load_model(self):
@@ -95,8 +102,9 @@ class DetectionModel:
                 filtered_results.append(result)
                 self.total_balls += 1
             elif classname == "hole" and counts["hole"] < 6:
-                counts["hole"] += 1
-                filtered_results.append(result)
+                if self._is_likely_hole(result):
+                    counts["hole"] += 1
+                    filtered_results.append(result)
             elif classname == "arm":
                 filtered_results.append(result)
 
@@ -134,6 +142,27 @@ class DetectionModel:
         cv2.putText(frame, f'Total number of balls: {self.total_balls}', (60,60), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
         cv2.imshow("Detection", frame)
 
+
+    def _is_likely_hole(self, result):
+        """
+        Helper function to check if the position of the detected "hole" is close to the corners or middle of the table.
+        """
+        _, _, xmin, ymin, xmax, ymax = self._get_result_info(result)
+        middlex = int((xmin + xmax) / 2)
+        middley = int((ymin + ymax) / 2)
+        if self._is_near_hole(middlex, middley):
+            return True
+        return False
+    
+    def _is_near_hole(self, middlex, middley):
+        """
+        Helper function to check if the position is near the hole.
+        """
+        for hole_x, hole_y in self.holes:
+            if abs(middlex - hole_x) <= self.config["hole_threshold"] and abs(middley - hole_y) <= self.config["hole_threshold"]:
+                return True
+        return False
+
     
     def _get_result_info(self, result):
         """
@@ -165,8 +194,7 @@ class DetectionModel:
         bounding_boxes = []
         for result in results:
             for box in result.boxes:
-                xyxy = box.xyxy.cpu().numpy().squeeze()
-                xmin, ymin, xmax, ymax = map(int, xyxy)
+                _, _, xmin, ymin, xmax, ymax = self._get_result_info(box)
                 bounding_boxes.append((xmin, ymin, xmax, ymax))
 
         mask = np.zeros_like(frame[:, :, 0])
