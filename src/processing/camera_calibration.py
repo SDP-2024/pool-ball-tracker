@@ -199,10 +199,13 @@ def save_table_points(table_pts, file_path="config/table_points.json"):
     data = {
         "table_pts": [list(pt) for pt in table_pts],
     }
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "w") as f:
-        json.dump(data, f, indent=4)
-    logger.info(f"Table points saved to {file_path}")
+    try:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w") as f:
+            json.dump(data, f, indent=4)
+        logger.info(f"Table points saved to {file_path}")
+    except Exception as e:
+        logger.error(f"Error saving table points: {e}")
 
 
 def manage_point_selection(frame):
