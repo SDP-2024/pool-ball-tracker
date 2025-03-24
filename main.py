@@ -135,8 +135,12 @@ def main():
         if not args.collect_ae_data and not args.no_anomaly:
             table_only = detection_model.extract_bounding_boxes(undistorted_frame, detections)
             is_anomaly = autoencoder.detect_anomaly(table_only)
-            if network and is_anomaly:
-                network.send_obstruction("true")
+            if is_anomaly:
+                cv2.rectangle(drawing_frame, (config["output_width"] // 2 - 350, config["output_height"] // 2 - 50), (config["output_width"] // 2 + 310, config["output_height"] // 2 + 10), (0, 0, 0), -1)
+                cv2.putText(drawing_frame, "Obstruction Detected", ((config["output_width"] // 2) - 350 , config["output_height"] // 2), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3, cv2.LINE_AA)
+                cv2.imshow("Detection", drawing_frame)
+                if network:
+                    network.send_obstruction("true")
 
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
