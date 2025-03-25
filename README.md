@@ -8,6 +8,7 @@ This project performs real time pool ball detection using a trained computer vis
 
 - **Ball detection** - Performs ball detection using pre-trained computer vision model.
 - **Camera calibration** - Calibrates the camera to remove distortion.
+- **Coordinate calibration** - Includes a custom tool for configuring offsets from the camera detections to real-world coordinates.
 - **Obstruction detection** - Uses an autoencoder to detect obstructions on the table for increased safety.
 - **Configuration** - Key features can be modified with an intuative configuration file, with support for multiple profiles.
 - **Network Communication** - Communicates with the Pool-Pal app and gantry system.
@@ -55,6 +56,7 @@ Modify `config.yaml` to adjust settings such as:
 - Position threshold
 - Update interval
 - Network settings
+- Calibration mode
 
 **Important settings**
 
@@ -64,12 +66,39 @@ Modify `config.yaml` to adjust settings such as:
   - Example: `calibration_folder : "./config/calibration/folder_cam"`
 - `detection_model_path` Provide the path of a detection model if you wish to use your own.
 - `network_update_interval` The frequency that the game state will be sent to the server.
+- `calibration_mode` The coordinate calibration method.
+  - `0`: Grid calibration
+  - `1`: Camera matrix calibration
+  - `2`: Scaling factor
+  - `3`: Linear offset
 
 Optionally create a new configuration profile with:
 
 ```bash
 python main.py --create-profile [name]
 ```
+
+### **Calibration Tool**
+
+Run the calibration tool with:
+
+```bash
+python main.py --calibrate
+```
+
+This will load a GUI as shown below:
+
+![Calibration tool](./images/calibration_tool.png "Calibration Tool")
+
+Selecting a mode will display sliders for calibration:
+
+![Calibration sliders](./images/calibration_tool_scaling.png "Calibration Tool with sliders")
+
+Changes to these values will be shown in real-time on the drawing frame.
+
+Red dots are the detected positions, and the green dots are the calibrated positions.
+
+![Detected and corrected positions](./images/detected_corrected_positions.png "Detected and corrected positions")
 
 ### **Running with arguments**
 
@@ -80,6 +109,7 @@ There are optional arguments for running the program.
 - `--collect-model-images` - Collect images when holding `t` for use in model training. Images are saved to the path specified in config.
 - `--collect-ae-data` - Collect images when holding `t` for use in the autoencoder. Images are saved to the path specified in config.
 - `--file [path]` - Use a static image for testing.
+- `--calibrate` - Loads the calibration tool.
 
 ### **Running with Custom Config**
 
