@@ -12,7 +12,7 @@ from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
 from src.logic.game_state import StateManager
-from src.logic.calibration_tool import run_calibration_tool, stop_calibration_tool
+from src.logic.calibration_tool import run_calibration_tool
 
 logger = logging.getLogger(__name__)
 
