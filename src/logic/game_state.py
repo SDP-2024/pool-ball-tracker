@@ -4,16 +4,19 @@ import cv2
 import numpy as np
 import os
 import json
+from PyQt6.QtCore import QObject, pyqtSignal
 
 logger = logging.getLogger(__name__)
 
-class StateManager:
+class StateManager():
     """
     This class is in charge of managing the current state of the game.
     It monitors the current and previous state to detect when the balls have stopped moving.
     It also sends the current state to the network if it is available.
     """
+    #selected_cell_changed = pyqtSignal(tuple)
     def __init__(self, config, network=None, mtx=None, dist=None):
+        #super().__init__()
         self.config = config
         self.previous_state = None
         self.network = network
@@ -27,15 +30,23 @@ class StateManager:
         self.camera_matrix = mtx
         self.dist = dist
         self.calibration_mode = self.config["calibration_mode"]
+
         self.grid_size = 100
-        self.selected_cell = None
+        #self._selected_cell = (0,0)
+        self.selected_cell = (0,0)
+        self.selected_cell_values = (0,0)
+        self.saved_grid = {} # Saved grids indexed by the grid size
+
         self.x_scaling_factor = 0
         self.y_scaling_factor = 0
         self.mirror_scaling = False
+
         self.x_linear = 0
         self.y_linear = 0
         self.mirror_linear = False
+
         self.matrix_correction_factor = 0
+
         self.parameters_path = "./src/logic/calibration_parameters.json"
         self.load_all_parameters()
 
@@ -188,8 +199,36 @@ class StateManager:
         It detects which cell is selected, and works with the calibration tool to track offsets per cell.
         """
         cv2.setMouseCallback("Detection", self._select_cell)
-        return self._draw_grid(frame)
+        frame = self._draw_grid(frame)
+
+        if self.selected_cell is not None:
+            top_left = (self.selected_cell[0] * self.grid_size, self.selected_cell[1] * self.grid_size)
+            bottom_right = (top_left[0] + self.grid_size, top_left[1] + self.grid_size)
+            frame = cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)
+            if f"{self.grid_size}" in self.saved_grid and self.selected_cell in self.saved_grid[f"{self.grid_size}"]:
+                self.selected_cell_values = (self.saved_grid[f"{self.grid_size}"][self.selected_cell]['x'], self.saved_grid[f"{self.grid_size}"][self.selected_cell]['y'])
+            else:
+                self.selected_cell_values = (0,0)
+        
+        # Save the current state of the grid
+        if f"{self.grid_size}" not in self.saved_grid:
+            self.saved_grid[f"{self.grid_size}"] = {}
+        self.saved_grid[f"{self.grid_size}"][self.selected_cell] = {
+            'x': self.selected_cell_values[0],
+            'y': self.selected_cell_values[1]
+        }
+
+        return frame
     
+    # @property
+    # def selected_cell(self):
+    #     return self._selected_cell
+    
+    # @selected_cell.setter
+    # def selected_cell(self, new_value):
+    #     if self._selected_cell != new_value:
+    #         self._selected_cell = new_value
+    #         self.selected_cell_changed.emit(new_value)
 
     def _select_cell(self, event, x, y, _, param):
         """
@@ -197,19 +236,22 @@ class StateManager:
         """
         if event == cv2.EVENT_LBUTTONDOWN:
             logger.info(f"Point selected: {(x, y)}")
-    
+            self.selected_cell = self._get_cell(x, y)
 
+    def _get_cell(self, x, y):
+        return (x // self.grid_size, y // self.grid_size)
+    
     def _draw_grid(self, frame):
         """
         Draws a grid to screen with the required cell size.
         """
         h, w, _ = frame.shape
-        # Veritcal lines
+        # Vertical lines
         for x in range(0, w, self.grid_size):
-            cv2.line(frame, (x, 0), (x, h), (0,0,0), 1)
+            cv2.line(frame, (x, 0), (x, h), (0, 0, 0), 1)
         # Horizontal lines
         for y in range(0, h, self.grid_size):
-            cv2.line(frame, (0, y), (w,y), (0,0,0), 1)
+            cv2.line(frame, (0, y), (w, y), (0, 0, 0), 1)
 
         return frame
     
@@ -331,7 +373,10 @@ class StateManager:
         Saves all of the parameters for the calibration settings to a json file.
         """
         data = {
-            0: {"grid_size" : self.grid_size},
+            0: {"grid": {
+                "grid_size": self.grid_size,
+                #"saved_grid": {str(k): v for k, v in self.saved_grid.items()},
+            }},
             1: {"matrix_correction_factor": self.matrix_correction_factor},
             2: {"scaling": {
                 "x_scaling_factor" : self.x_scaling_factor,
@@ -370,7 +415,8 @@ class StateManager:
                 logger.error["Incorrect parameters format"]
                 return
 
-            self.grid_size = data["0"]["grid_size"]
+            self.grid_size = data["0"]["grid"]["grid_size"]
+            #self.saved_grid = {eval(k): v for k, v in data["0"]["grid"]["saved_grid"].items()}
             self.matrix_correction_factor = data["1"]["matrix_correction_factor"]
             self.x_scaling_factor = data["2"]["scaling"]["x_scaling_factor"]
             self.y_scaling_factor = data["2"]["scaling"]["y_scaling_factor"]
