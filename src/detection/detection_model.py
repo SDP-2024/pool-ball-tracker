@@ -17,7 +17,7 @@ class DetectionModel:
         self.model_path = config["detection_model_path"]
         self.model = self.load_model()
         self.labels = self.model.names
-        self.bbox_colors = [(0,0,255), (0,0,0), (0, 255, 0), (255,0,0), (255,255,255), (255,255,0)]
+        self.bbox_colors = [(255,0,0), (0,0,0), (0, 255, 0), (0,0,255), (255,255,255), (0,255,255)]
         self.total_objects = 0
         self.total_balls = 0
         self.hole_positions = [
@@ -68,6 +68,7 @@ class DetectionModel:
         # Sort results by confidence
         all_results.sort(key=lambda x: x[0].conf.item(), reverse=True)
 
+        # Filter the results for most accurate detections
         filtered_results = self._filter_results(all_results)
         
         # Create a new result object with filtered boxes
@@ -83,10 +84,14 @@ class DetectionModel:
         It also ensures that no extra objects can be detected.
         """
         filtered_results = []
+
         # Reset found holes for each detection
         self.found_holes = []
+
         counts = defaultdict(int)
         self.total_balls = 0
+
+        # Check the number of each class to ensure they remain within the limits
         for result, classname in all_results:
             if classname == "white" and counts["white"] < 1:
                 counts["white"] += 1
@@ -105,6 +110,7 @@ class DetectionModel:
                 filtered_results.append(result)
                 self.total_balls += 1
             elif classname == "hole" and counts["hole"] < 6:
+                # Ensure the detected hole is likely a hole
                 if self._is_likely_hole(result):
                     counts["hole"] += 1
                     filtered_results.append(result)
@@ -134,6 +140,7 @@ class DetectionModel:
 
             if conf > self.config["conf_threshold"]:
                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 2)
+                cv2.circle(frame, ((xmin+xmax)//2, ((ymin+ymax)//2)), 4, (0,0,255), -1)
                 label = f"{classname}: {int(conf*100)}%"
                 labelSize, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_thickness"])
                 label_ymin = max(ymin, labelSize[1] + 10)
@@ -141,8 +148,8 @@ class DetectionModel:
 
                 self.total_objects += 1
                 
-        cv2.putText(frame, f'Total number of objects: {self.total_objects}', (60,40), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
-        cv2.putText(frame, f'Total number of balls: {self.total_balls}', (60,60), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
+        cv2.putText(frame, f'Total number of objects: {self.total_objects}', (120,40), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
+        cv2.putText(frame, f'Total number of balls: {self.total_balls}', (120,60), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
         cv2.imshow("Detection", frame)
 
 
@@ -218,7 +225,3 @@ class DetectionModel:
         table_only = cv2.inpaint(frame, mask, 3, cv2.INPAINT_TELEA)
 
         return table_only # All regions to be checked for anomalies
-
-
-            
-

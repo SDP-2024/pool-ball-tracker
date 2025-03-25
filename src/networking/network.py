@@ -6,6 +6,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Network:
+    """
+    This class is in charge of the network connection to the pub/sub server.
+    It sends the ball positions, obstruction detected, and end of turn messages to the server.
+    It will track failed messages and attempt to reconnect if necessary.
+    """
     def __init__(self, config):
         self.config = config
         self.sio = socketio.Client()
