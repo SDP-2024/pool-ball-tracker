@@ -157,7 +157,6 @@ def main():
     if args.file is None:
         camera.release()
     cv2.destroyAllWindows()
-    state_manager.save_all_parameters()
     if config["use_networking"]:
         network.disconnect()
 
