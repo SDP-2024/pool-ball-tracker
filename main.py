@@ -3,6 +3,7 @@ import argparse
 import time
 import logging
 from random import randint
+import threading
 
 from config.config_manager import load_config, create_profile
 from src.processing.camera_calibration import *
@@ -11,6 +12,7 @@ from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
 from src.logic.game_state import StateManager
+from src.logic.calibration_tool import run_calibration_tool, stop_calibration_tool
 
 logger = logging.getLogger(__name__)
 
@@ -47,17 +49,6 @@ def main():
     if args.set_points:
         reset_points()
     
-    # If networking is enabled, start the server
-    network = None
-    if config.get("use_networking", False):
-        network = Network(config)
-        network.start()
-        state_manager = StateManager(config, network)
-    else:
-        state_manager = StateManager(config)
-
-    # Initialise detection model
-    detection_model = DetectionModel(config)
 
     # Process either static image or a live webcam feed
     if args.file is not None:
@@ -67,7 +58,7 @@ def main():
         # Read frames
         ret, frame = camera.read()
         if not ret:
-            logger.error("Error reading camera frame. Exiting.")
+            logger.error("Error reading camera frame. Exiting")
             return
 
     # Calibrate camera and undistort
@@ -90,6 +81,22 @@ def main():
 
     undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
 
+    # If networking is enabled, start the server
+    network = None
+    if config.get("use_networking", False):
+        network = Network(config)
+        network.start()
+        state_manager = StateManager(config, network, mtx, dist)
+    else:
+        state_manager = StateManager(config, None, mtx, dist)
+
+    if args.calibrate:
+        threading.Thread(target=run_calibration_tool, args=(config, state_manager)).start()
+        state_manager.calibrating = True
+
+    # Initialise detection model
+    detection_model = DetectionModel(config)
+    
     # Initialise autoencoder
     autoencoder = None
     if not args.collect_ae_data and not args.no_anomaly:
@@ -127,7 +134,7 @@ def main():
         detection_model.draw(drawing_frame, detections)
 
         # Update state
-        state_manager.update(detections, labels)
+        state_manager.update(detections, labels, drawing_frame)
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data and not args.no_anomaly:
@@ -150,6 +157,7 @@ def main():
     if args.file is None:
         camera.release()
     cv2.destroyAllWindows()
+    state_manager.save_all_parameters()
     if config["use_networking"]:
         network.disconnect()
 
@@ -209,6 +217,12 @@ def parse_args():
         type=str,
         default=None,
         help="The path to the image file."
+    )
+
+    parser.add_argument(
+        "--calibrate",
+        action="store_true",
+        default=False
     )
 
     return parser.parse_args()

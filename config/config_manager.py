@@ -37,6 +37,7 @@ schema = {
         "output_width": {"type": "integer", "min": 0},
         "output_height": {"type": "integer", "min": 0},
         "hole_threshold": {"type": "integer", "min": 0},
+        "calibration_mode": {"type": "integer", "min": -1}
     },
 }
 
@@ -167,6 +168,7 @@ def create_profile(path="../config", name="default"):
             "output_width": 1200,
             "output_height": 600,
             "hole_threshold": 30,
+            "calibration_mode": -1
         }
     
     try:
