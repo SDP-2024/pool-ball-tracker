@@ -62,10 +62,16 @@ class StateManager():
             data (tuple): A tuple containing all the detected objects
             labels (dict): A dictionary of the object labels
         """
+        # If the network has a received a request for positions, force positions to be sent.
+        if self.network and self.network.positions_requested:
+            self.previous_state = None
+            self.network.positions_requested = False
+
         current_time = time.time()
         if current_time - self.time_since_last_update < self.time_between_updates: return
 
         balls = {}
+        corrected_white_ball = {}
 
         num_balls = 0
         self.not_moved_counter = 0
@@ -89,16 +95,21 @@ class StateManager():
 
             num_balls += 1
 
-            if self.calibration_mode == 0:
-                middlex, middley = self._correct_ball_position_grid(middlex, middley)
-            elif self.calibration_mode == 1:
-                middlex, middley = self._correct_ball_position_matrix(middlex, middley)
-            elif self.calibration_mode == 2:
-                middlex, middley = self._correct_ball_position_scaling(middlex, middley)
-            elif self.calibration_mode == 3:
-                middlex, middley = self._correct_ball_position_linear(middlex, middley)
+            if classname == "white":
+                if self.calibration_mode == 0:
+                    corrected_white_middlex, corrected__white_middley = self._correct_ball_position_grid(middlex, middley)
+                elif self.calibration_mode == 1:
+                    corrected_white_middlex, corrected__white_middley = self._correct_ball_position_matrix(middlex, middley)
+                elif self.calibration_mode == 2:
+                    corrected_white_middlex, corrected__white_middley = self._correct_ball_position_scaling(middlex, middley)
+                elif self.calibration_mode == 3:
+                    corrected_white_middlex, corrected__white_middley = self._correct_ball_position_linear(middlex, middley)
+                else:
+                    corrected_white_middlex, corrected__white_middley = middlex, middley
+                
+                cv2.circle(frame, (corrected_white_middlex, corrected__white_middley), 4, (0, 255, 0), -1)
+                corrected_white_ball.update({"x": corrected_white_middlex, "y": corrected__white_middley})
 
-            cv2.circle(frame, (middlex, middley), 4, (0, 255, 0), -1)
             cv2.imshow("Detection", frame)
             # Check if this ball is close to a previous position
             if self.previous_state and classname in self.previous_state:
@@ -123,7 +134,7 @@ class StateManager():
             return
 
         # Update the socket with the new state
-        self._update_and_send_balls(balls, current_time)
+        self._update_and_send_balls(balls, corrected_white_ball, current_time)
 
 
     def _correct_ball_position_scaling(self, middlex, middley):
@@ -354,7 +365,7 @@ class StateManager():
                 logger.info("No movement detected, turn ended.")
 
 
-    def _update_and_send_balls(self, balls, current_time):
+    def _update_and_send_balls(self, balls, white_ball, current_time):
         """
         Sends the balls if new positions are detected
         """
@@ -365,7 +376,16 @@ class StateManager():
             if self.network:
                 self.network.send_balls({"balls": balls})
             else:
-                logger.info("Sending balls: %s", balls)
+                logger.info(f"Sending balls: {balls}")
+        self._send_white_ball(white_ball, current_time)
+
+    def _send_white_ball(self, ball, current_time):
+        if ball:
+            self.time_since_last_update = current_time
+            if self.network:
+                self.network.send_corrected_white_ball(ball)
+            else:
+                logger.info(f"Sending corrected white ball: {ball}")
 
 
     def save_all_parameters(self):

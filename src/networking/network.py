@@ -14,7 +14,7 @@ class Network:
     def __init__(self, config):
         self.config = config
         self.sio = socketio.Client()
-        self.disconnect_counter = 0
+        self.positions_requested = False
 
         @self.sio.event
         def connect():
@@ -22,11 +22,17 @@ class Network:
             self.sio.emit("join", "ballPositions")
             self.sio.emit("join", "obstructionDetected")
             self.sio.emit("join", "endOfTurn")
+            self.sio.emit("join", "requestPositions")
+            self.sio.emit("join", "correctedPositions")
 
         @self.sio.event
         def disconnect():
             logger.warning("Disconnected from server.")
             self.reconnect()
+
+        @self.sio.on("requestPositions")
+        def handle_request_positions(sid, data):
+            self._handle_request_positions(sid, data)
 
     def _reconnect(self):
         while True:
@@ -45,20 +51,29 @@ class Network:
             logger.error(f"Connection failed: {e}")
             self.reconnect()
 
+    def _handle_request_positions(self, sid, data):
+        self.positions_requested = True
+
     def send_balls(self, balls):
         try:
             logger.info(f"Sending balls: {balls}")
             self.sio.emit("ballPositions", balls)
-            self.disconnect_counter = 0
         except Exception as e:
             self._handle_error(e, "ballsPositions")
+            pass
+
+    def send_corrected_white_ball(self, ball):
+        try:
+            logger.info(f"Sending ball: {ball}")
+            self.sio.emit("correctedPositions", ball)
+        except Exception as e:
+            self._handle_error(e, "correctedPositions")
             pass
     
     def send_end_of_turn(self, end_of_turn):
         try:
             logger.info(f"Sending end of turn: {end_of_turn}")
             self.sio.emit("endOfTurn", end_of_turn)
-            self.disconnect_counter = 0
         except Exception as e:
             self._handle_error(e, "endOfTurn")
             pass
@@ -67,7 +82,6 @@ class Network:
         try:
             logger.info(f"Sending obstruction detected: {obstruction_detected}")
             self.sio.emit("obstructionDetected", obstruction_detected)
-            self.disconnect_counter = 0
         except Exception as e:
             self._handle_error(e, "obstructionDetected")
             pass
@@ -81,11 +95,5 @@ class Network:
     def reconnect(self):
         threading.Thread(target=self._reconnect, daemon=True).start()
 
-    def _check_reconnect(self):
-        if self.disconnect_counter >= 10:
-                self.reconnect()
-
     def _handle_error(self, e, name):
-        self.disconnect_counter += 1
         logger.error(f"Failed to send {name}: {e}")
-        self._check_reconnect()
