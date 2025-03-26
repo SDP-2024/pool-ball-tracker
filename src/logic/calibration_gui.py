@@ -5,9 +5,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class CalibrationTool(QWidget):
+class CalibrationInterface(QWidget):
     """
-    This calibration tool allows for the real-time modification of calibration settings.
+    This calibration interface allows for the real-time modification of calibration settings.
     These settings produce an offset from the detected coordinates to the "real" coordinates.
     The aim is to find settings that allow the gantry to reliably move to the "real" coordinates.
     """
@@ -15,7 +15,7 @@ class CalibrationTool(QWidget):
         super().__init__()
         self.config = config
         self.state_manager = state_manager
-        self.setWindowTitle("Calibration Tool")
+        self.setWindowTitle("Calibration Interface")
         self.resize(300, 200)
         self.layout = QVBoxLayout()
 
@@ -385,13 +385,13 @@ class CalibrationTool(QWidget):
         self.matrix_correction_label = None
 
 
-def run_calibration_tool(config, state_manager):
+def run_calibration_interface(config, state_manager):
     """
-    Entry point for calibration tool.
+    Entry point for calibration interface.
     This is run on its own thread.
     """
     app = QApplication(sys.argv)
-    window = CalibrationTool(config, state_manager)
+    window = CalibrationInterface(config, state_manager)
     window.show()
     app.exec()
 
