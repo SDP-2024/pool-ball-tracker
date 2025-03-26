@@ -192,6 +192,7 @@ class CalibrationTool(QWidget):
         if not self.x_scaling_slider and not self.y_scaling_slider:
             self.scaling_mirror = QCheckBox("Mirror around center")
             self.scaling_mirror.stateChanged.connect(self._update_scaling_mirror)
+            self.scaling_mirror.setChecked(self.state_manager.mirror_scaling)
             self.x_scaling_slider = QSlider(Qt.Orientation.Horizontal)
             self.x_scaling_slider.setRange(-200, 200)
             self.x_scaling_slider.setValue(int(self.state_manager.x_scaling_factor*1000))
@@ -250,6 +251,7 @@ class CalibrationTool(QWidget):
         if not self.x_linear_slider and not self.y_linear_slider:
             self.linear_mirror = QCheckBox("Mirror around center")
             self.linear_mirror.stateChanged.connect(self._update_linear_mirror)
+            self.linear_mirror.setChecked(self.state_manager.mirror_linear)
             self.x_linear_slider = QSlider(Qt.Orientation.Horizontal)
             self.x_linear_slider.setRange(-50, 50)
             self.x_linear_slider.setValue(int(self.state_manager.x_linear))
