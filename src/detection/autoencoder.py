@@ -25,7 +25,7 @@ class AutoEncoder:
         This function will load an autoencoder if it exists.
         If it does not then it will build a new one using the provided images.
         """
-        model_path = self.config.get("autoencoder_model_path", "model/autoencoder_model.keras")
+        model_path = self.config.autoencoder_model_path
 
         if os.path.exists(model_path):
             logger.info("Loading existing autoencoder model...")
@@ -43,7 +43,7 @@ class AutoEncoder:
         autoencoder.summary()
 
         # Load images only if model is being trained
-        clean_images_path = self.config.get("clean_images_path", "")
+        clean_images_path = self.config.clean_images_path
         clean_images = self.load_images(clean_images_path)
 
         if len(clean_images) == 0:
@@ -52,7 +52,7 @@ class AutoEncoder:
 
         # Train the model if it doesn't exist
         logger.info("Training new model...")
-        autoencoder.fit(clean_images, clean_images, epochs=self.config.get("epochs", 50), batch_size=self.config.get("batch_size", 32))
+        autoencoder.fit(clean_images, clean_images, epochs=50, batch_size=32)
         autoencoder.save(model_path)  # Save after training
         logger.info("Model trained and saved!")
 
@@ -123,7 +123,7 @@ class AutoEncoder:
         mse = np.mean(np.square(anomaly - reconstructed))
 
         logger.info(f"MSE: {mse}")
-        return mse > self.config.get("anomaly_threshold", 0.01)
+        return mse > self.config.anomaly_threshold
 
 
 

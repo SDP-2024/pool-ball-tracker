@@ -20,7 +20,7 @@ class StateManager():
         self.config = config
         self.previous_state = None
         self.network = network
-        self.time_between_updates = self.config["network_update_interval"]
+        self.time_between_updates = self.config.network_update_interval
         self.time_since_last_update = time.time() - self.time_between_updates
         self.end_of_turn = False
         self.not_moved_counter = 0
@@ -29,7 +29,7 @@ class StateManager():
         self.calibrating = False
         self.camera_matrix = mtx
         self.dist = dist
-        self.calibration_mode = self.config["calibration_mode"]
+        self.calibration_mode = self.config.calibration_mode
 
         self.grid_size = 100
         #self._selected_cell = (0,0)
@@ -147,10 +147,10 @@ class StateManager():
 
             return self._coords_clamped(corrected_x, corrected_y)
         else:
-            if middlex <= self.config["output_width"] // 2:
-                corrected_x = middlex + ((self.config["output_width"] // 2 - middlex) * self.x_scaling_factor)
+            if middlex <= self.config.output_width // 2:
+                corrected_x = middlex + ((self.config.output_width // 2 - middlex) * self.x_scaling_factor)
             else:
-                corrected_x = middlex - ((middlex - self.config["output_width"] // 2) * self.x_scaling_factor)
+                corrected_x = middlex - ((middlex - self.config.output_width // 2) * self.x_scaling_factor)
             corrected_y = middley + (middley * self.y_scaling_factor)
 
             return self._coords_clamped(corrected_x, corrected_y)
@@ -167,11 +167,11 @@ class StateManager():
         Returns:
             tuple: Corrected (x, y) coordinates.
         """
-        distance_from_center_x = self.config["output_width"] / 2 - middlex
+        distance_from_center_x = self.config.output_width / 2 - middlex
 
-        offset_400 = (((self.config["output_width"]/2) + middlex) * 0.025)
-        offset_200 = (((self.config["output_width"]/2) + middlex) * 0.023)
-        offset_100 = (((self.config["output_width"]/2) + middlex) * 0.017)
+        offset_400 = (((self.config.output_width/2) + middlex) * 0.025)
+        offset_200 = (((self.config.output_width/2) + middlex) * 0.023)
+        offset_100 = (((self.config.output_width/2) + middlex) * 0.017)
         
         if distance_from_center_x < -400:
             corrected_x = int(middlex + offset_400)
@@ -306,7 +306,7 @@ class StateManager():
             corrected_y = middley + self.y_linear
             return self._coords_clamped(corrected_x, corrected_y)
         else:
-            if middlex <= self.config["output_width"] // 2:
+            if middlex <= self.config.output_width // 2:
                 corrected_x = middlex  + self.x_linear
             else:
                 corrected_x = middlex - self.x_linear
@@ -337,8 +337,8 @@ class StateManager():
         """
         Clamps the coordinates to the boundaries of the table
         """
-        middlex = self.config["output_width"] if _middlex > self.config["output_width"] else _middlex
-        middley = self.config["output_height"] if _middley > self.config["output_height"] else _middley
+        middlex = self.config.output_width if _middlex > self.config.output_width else _middlex
+        middley = self.config.output_height if _middley > self.config.output_height else _middley
         middlex = 0 if middlex < 0 else middlex
         middley = 0 if middley < 0 else middley
         return int(middlex), int(middley)
@@ -350,7 +350,7 @@ class StateManager():
         """
         dx = abs(prev_ball["x"] - middlex)
         dy = abs(prev_ball["y"] - middley)
-        return dx <= self.config["position_threshold"] and dy <= self.config["position_threshold"]
+        return dx <= self.config.position_threshold and dy <= self.config.position_threshold
     
 
     def _handle_end_of_turn(self):

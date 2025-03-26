@@ -38,7 +38,7 @@ class Network:
         while True:
             try:
                 logger.info("Attempting to reconnect...")
-                self.sio.connect(self.config["poolpal_url"], wait=False)
+                self.sio.connect(self.config.poolpal_url, wait=False)
                 break
             except Exception as e:
                 logger.error(f"Reconnection failed: {e}")
@@ -46,7 +46,7 @@ class Network:
 
     def connect(self):
         try:
-            self.sio.connect(self.config["poolpal_url"], wait=False)
+            self.sio.connect(self.config.poolpal_url, wait=False)
         except Exception as e:
             logger.error(f"Connection failed: {e}")
             self.reconnect()
