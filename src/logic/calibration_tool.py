@@ -21,7 +21,6 @@ class CalibrationTool(QWidget):
 
         self.grid_label = None
         self.grid_slider = None
-        self.cell_label = None
         self.cell_x_offset_slider = None
         self.cell_x_offset_label = None
         self.cell_y_offset_slider = None
@@ -91,8 +90,6 @@ class CalibrationTool(QWidget):
             self.grid_slider.valueChanged.connect(self._update_grid_size)
 
             if self.state_manager.selected_cell is not None:
-                #self.cell_label = QLabel(f"Selected Cell: {self.state_manager.selected_cell}")
-                #self.state_manager.selected_cell_changed.connect(self._update_selected_cell_label)
                 self.cell_x_offset_slider = QSlider(Qt.Orientation.Horizontal)
                 self.cell_x_offset_slider.setRange(-50, 50)
                 self.cell_x_offset_slider.setValue(self.state_manager.selected_cell_values[0])
@@ -108,28 +105,11 @@ class CalibrationTool(QWidget):
 
             self.layout.addWidget(self.grid_slider)
             self.layout.addWidget(self.grid_label)
-            self.layout.addWidget(self.cell_label)
             self.layout.addWidget(self.cell_x_offset_slider)
             self.layout.addWidget(self.cell_x_offset_label)
             self.layout.addWidget(self.cell_y_offset_slider)
             self.layout.addWidget(self.cell_y_offset_label)
 
-    def _update_selected_cell_label(self):
-        if self.cell_label:
-            self.cell_label.setText(f"Selected Cell: {self.state_manager.selected_cell}")
-
-        # Get the new offset values for the selected cell
-        selected_cell = self.state_manager.selected_cell
-        selected_offsets = self.state_manager.saved_grid.get(selected_cell, (0, 0))
-
-        # Update offset sliders and labels
-        if self.cell_x_offset_slider and self.cell_y_offset_slider:
-            self.cell_x_offset_slider.setValue(selected_offsets[0])
-            self.cell_y_offset_slider.setValue(selected_offsets[1])
-
-        if self.cell_x_offset_label and self.cell_y_offset_label:
-            self.cell_x_offset_label.setText(f"X Offset: {selected_offsets[0]}")
-            self.cell_y_offset_label.setText(f"Y Offset: {selected_offsets[1]}")
     
     def _update_grid_size(self, value):
         """
@@ -308,9 +288,6 @@ class CalibrationTool(QWidget):
         if self.grid_slider:
             self.layout.removeWidget(self.grid_slider)
             self.grid_slider.deleteLater()
-        if self.cell_label:
-            self.layout.removeWidget(self.cell_label)
-            self.cell_label.deleteLater()
         if self.cell_x_offset_slider:
             self.layout.removeWidget(self.cell_x_offset_slider)
             self.cell_x_offset_slider.deleteLater()

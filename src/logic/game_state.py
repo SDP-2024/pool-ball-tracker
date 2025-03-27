@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 import os
 import json
-from PyQt6.QtCore import QObject, pyqtSignal
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +13,7 @@ class StateManager():
     It monitors the current and previous state to detect when the balls have stopped moving.
     It also sends the current state to the network if it is available.
     """
-    #selected_cell_changed = pyqtSignal(tuple)
     def __init__(self, config, network=None, mtx=None, dist=None):
-        #super().__init__()
         self.config = config
         self.previous_state = None
         self.network = network
@@ -32,7 +29,6 @@ class StateManager():
         self.calibration_mode = self.config["calibration_mode"]
 
         self.grid_size = 100
-        #self._selected_cell = (0,0)
         self.selected_cell = (0,0)
         self.selected_cell_values = (0,0)
         self.saved_grid = {} # Saved grids indexed by the grid size
@@ -230,16 +226,6 @@ class StateManager():
         }
 
         return frame
-    
-    # @property
-    # def selected_cell(self):
-    #     return self._selected_cell
-    
-    # @selected_cell.setter
-    # def selected_cell(self, new_value):
-    #     if self._selected_cell != new_value:
-    #         self._selected_cell = new_value
-    #         self.selected_cell_changed.emit(new_value)
 
     def _select_cell(self, event, x, y, _, param):
         """
@@ -395,7 +381,6 @@ class StateManager():
         data = {
             0: {"grid": {
                 "grid_size": self.grid_size,
-                #"saved_grid": {str(k): v for k, v in self.saved_grid.items()},
             }},
             1: {"matrix_correction_factor": self.matrix_correction_factor},
             2: {"scaling": {
