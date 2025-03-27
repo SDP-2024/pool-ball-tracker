@@ -96,8 +96,8 @@ def main():
         state_manager = StateManager(config, None, mtx, dist)
 
     if args.calibrate:
-        threading.Thread(target=run_calibration_interface, args=(config, state_manager)).start()
-        state_manager.calibrating = True
+        threading.Thread(target=run_calibration_interface, args=(config, state_manager.offset_manager)).start()
+        state_manager.offset_manager.calibrating = True
 
     # Initialise detection model
     detection_model = DetectionModel(config)

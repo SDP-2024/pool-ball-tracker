@@ -11,10 +11,10 @@ class CalibrationInterface(QWidget):
     These settings produce an offset from the detected coordinates to the "real" coordinates.
     The aim is to find settings that allow the gantry to reliably move to the "real" coordinates.
     """
-    def __init__(self, config, state_manager):
+    def __init__(self, config, offset_manager):
         super().__init__()
         self.config = config
-        self.state_manager = state_manager
+        self.offset_manager = offset_manager
         self.setWindowTitle("Calibration Interface")
         self.resize(300, 200)
         self.layout = QVBoxLayout()
@@ -64,7 +64,7 @@ class CalibrationInterface(QWidget):
         self.layout.addWidget(linear_mode_button)
 
         save_button = QPushButton("Save All")
-        save_button.clicked.connect(self.state_manager.save_all_parameters)
+        save_button.clicked.connect(self.offset_manager.save_all_parameters)
         save_button.setFixedWidth(100)
         self.layout.addWidget(save_button)
         
@@ -80,47 +80,46 @@ class CalibrationInterface(QWidget):
         """
         self.destroy_all()
         logger.info("Grid Mode enabled.")
-        self.state_manager.calibration_mode = 0
+        self.offset_manager.calibration_mode = 0
         if not self.grid_slider:
             self.grid_slider = QSlider(Qt.Orientation.Horizontal)
             self.grid_slider.setRange(50, 250)
-            self.grid_slider.setValue(self.state_manager.grid_size)
+            self.grid_slider.setValue(self.offset_manager.grid_size)
 
             self.grid_label = QLabel(f"Grid Size: {self.grid_slider.value()}")
 
             self.grid_slider.valueChanged.connect(self._update_grid_size)
 
-            if self.state_manager.selected_cell is not None:
-                #self.cell_label = QLabel(f"Selected Cell: {self.state_manager.selected_cell}")
-                #self.state_manager.selected_cell_changed.connect(self._update_selected_cell_label)
+            if self.offset_manager.selected_cell is not None:
                 self.cell_x_offset_slider = QSlider(Qt.Orientation.Horizontal)
                 self.cell_x_offset_slider.setRange(-50, 50)
-                self.cell_x_offset_slider.setValue(self.state_manager.selected_cell_values[0])
+                self.cell_x_offset_slider.setValue(self.offset_manager.selected_cell_values[0])
                 self.cell_x_offset_label = QLabel(f"X Offset: {self.cell_x_offset_slider.value()}")
 
                 self.cell_y_offset_slider = QSlider(Qt.Orientation.Horizontal)
                 self.cell_y_offset_slider.setRange(-50, 50)
-                self.cell_y_offset_slider.setValue(self.state_manager.selected_cell_values[1])
+                self.cell_y_offset_slider.setValue(self.offset_manager.selected_cell_values[1])
                 self.cell_y_offset_label = QLabel(f"Y Offset: {self.cell_y_offset_slider.value()}")
 
                 self.cell_x_offset_slider.valueChanged.connect(self._update_grid_x_offset)
                 self.cell_y_offset_slider.valueChanged.connect(self._update_grid_y_offset)
+            
 
-            self.layout.addWidget(self.grid_slider)
+
             self.layout.addWidget(self.grid_label)
-            self.layout.addWidget(self.cell_label)
-            self.layout.addWidget(self.cell_x_offset_slider)
+            self.layout.addWidget(self.grid_slider)
             self.layout.addWidget(self.cell_x_offset_label)
-            self.layout.addWidget(self.cell_y_offset_slider)
+            self.layout.addWidget(self.cell_x_offset_slider)
             self.layout.addWidget(self.cell_y_offset_label)
+            self.layout.addWidget(self.cell_y_offset_slider)
 
     def _update_selected_cell_label(self):
         if self.cell_label:
-            self.cell_label.setText(f"Selected Cell: {self.state_manager.selected_cell}")
+            self.cell_label.setText(f"Selected Cell: {self.offset_manager.selected_cell}")
 
         # Get the new offset values for the selected cell
-        selected_cell = self.state_manager.selected_cell
-        selected_offsets = self.state_manager.saved_grid.get(selected_cell, (0, 0))
+        selected_cell = self.offset_manager.selected_cell
+        selected_offsets = self.offset_manager.saved_grid.get(selected_cell, (0, 0))
 
         # Update offset sliders and labels
         if self.cell_x_offset_slider and self.cell_y_offset_slider:
@@ -137,17 +136,17 @@ class CalibrationInterface(QWidget):
         """
         if self.grid_label:
             self.grid_label.setText(f"Grid Size: {value}")
-        self.state_manager.grid_size = value
+        self.offset_manager.grid_size = value
 
     def _update_grid_x_offset(self, value):
         if self.cell_x_offset_label:
             self.cell_x_offset_label.setText(f"X Offset: {value}")
-        self.state_manager.selected_cell_values = (value, self.state_manager.selected_cell_values[1])
+        self.offset_manager.selected_cell_values = (value, self.offset_manager.selected_cell_values[1])
 
     def _update_grid_y_offset(self, value):
         if self.cell_y_offset_label:
             self.cell_y_offset_label.setText(f"Y Offset: {value}")
-        self.state_manager.selected_cell_values = (self.state_manager.selected_cell_values[0], value)
+        self.offset_manager.selected_cell_values = (self.offset_manager.selected_cell_values[0], value)
 
     def matrix_mode(self):
         """
@@ -156,18 +155,18 @@ class CalibrationInterface(QWidget):
         """
         self.destroy_all()
         logger.info("Matrix Mode enabled.")
-        self.state_manager.calibration_mode = 1
+        self.offset_manager.calibration_mode = 1
         if not self.matrix_correction_slider:
             self.matrix_correction_slider = QSlider(Qt.Orientation.Horizontal)
             self.matrix_correction_slider.setRange(-1000, 1000)
-            self.matrix_correction_slider.setValue(int(self.state_manager.matrix_correction_factor * 1000))
+            self.matrix_correction_slider.setValue(int(self.offset_manager.matrix_correction_factor * 1000))
 
             self.matrix_correction_label = QLabel(f"Matrix Correction Factor: {self.matrix_correction_slider.value()/1000}")
 
             self.matrix_correction_slider.valueChanged.connect(self._update_matrix_correction_factor)
 
-            self.layout.addWidget(self.matrix_correction_slider)
             self.layout.addWidget(self.matrix_correction_label)
+            self.layout.addWidget(self.matrix_correction_slider)
 
     def _update_matrix_correction_factor(self, value):
         """
@@ -176,7 +175,7 @@ class CalibrationInterface(QWidget):
         value = value / 1000
         if self.matrix_correction_label:
             self.matrix_correction_label.setText(f"Matrix Correction Factor: {value}")
-        self.state_manager.matrix_correction_factor = value
+        self.offset_manager.matrix_correction_factor = value
 
 
     def scaling_mode(self):
@@ -188,18 +187,18 @@ class CalibrationInterface(QWidget):
         """
         self.destroy_all()
         logger.info("Scaling Mode enabled.")
-        self.state_manager.calibration_mode = 2
+        self.offset_manager.calibration_mode = 2
         if not self.x_scaling_slider and not self.y_scaling_slider:
             self.scaling_mirror = QCheckBox("Mirror around center")
             self.scaling_mirror.stateChanged.connect(self._update_scaling_mirror)
-            self.scaling_mirror.setChecked(self.state_manager.mirror_scaling)
+            self.scaling_mirror.setChecked(self.offset_manager.mirror_scaling)
             self.x_scaling_slider = QSlider(Qt.Orientation.Horizontal)
             self.x_scaling_slider.setRange(-200, 200)
-            self.x_scaling_slider.setValue(int(self.state_manager.x_scaling_factor*1000))
+            self.x_scaling_slider.setValue(int(self.offset_manager.x_scaling_factor*1000))
 
             self.y_scaling_slider = QSlider(Qt.Orientation.Horizontal)
             self.y_scaling_slider.setRange(-200, 200)
-            self.y_scaling_slider.setValue(int(self.state_manager.y_scaling_factor*1000))
+            self.y_scaling_slider.setValue(int(self.offset_manager.y_scaling_factor*1000))
 
             self.x_scaling_label = QLabel(f"X Scaling Factor: {self.x_scaling_slider.value()/1000}")
             self.y_scaling_label = QLabel(f"Y Scaling Factor: {self.y_scaling_slider.value()/1000}")
@@ -207,10 +206,10 @@ class CalibrationInterface(QWidget):
             self.x_scaling_slider.valueChanged.connect(self._update_scaling_value_x)
             self.y_scaling_slider.valueChanged.connect(self._update_scaling_value_y)
 
-            self.layout.addWidget(self.x_scaling_slider)
             self.layout.addWidget(self.x_scaling_label)
-            self.layout.addWidget(self.y_scaling_slider)
+            self.layout.addWidget(self.x_scaling_slider)
             self.layout.addWidget(self.y_scaling_label)
+            self.layout.addWidget(self.y_scaling_slider)
             self.layout.addWidget(self.scaling_mirror)
 
     def _update_scaling_value_x(self, value):
@@ -220,7 +219,7 @@ class CalibrationInterface(QWidget):
         value = value / 1000
         if self.x_scaling_label:
             self.x_scaling_label.setText(f"X Scaling Factor: {value}")
-        self.state_manager.x_scaling_factor = value
+        self.offset_manager.x_scaling_factor = value
 
     def _update_scaling_value_y(self, value):
         """
@@ -229,16 +228,16 @@ class CalibrationInterface(QWidget):
         value = value / 1000
         if self.y_scaling_label:
             self.y_scaling_label.setText(f"Y Scaling Factor: {value}")
-        self.state_manager.y_scaling_factor = value
+        self.offset_manager.y_scaling_factor = value
 
     def _update_scaling_mirror(self, state):
         """
         Enable or disable mirroring around middle.
         """
         if state == 2:
-            self.state_manager.mirror_scaling = True
+            self.offset_manager.mirror_scaling = True
         else:
-            self.state_manager.mirror_scaling = False
+            self.offset_manager.mirror_scaling = False
 
     def linear_mode(self):
         """
@@ -247,18 +246,18 @@ class CalibrationInterface(QWidget):
         """
         self.destroy_all()
         logger.info("Linear Mode enabled.")
-        self.state_manager.calibration_mode = 3
+        self.offset_manager.calibration_mode = 3
         if not self.x_linear_slider and not self.y_linear_slider:
             self.linear_mirror = QCheckBox("Mirror around center")
             self.linear_mirror.stateChanged.connect(self._update_linear_mirror)
-            self.linear_mirror.setChecked(self.state_manager.mirror_linear)
+            self.linear_mirror.setChecked(self.offset_manager.mirror_linear)
             self.x_linear_slider = QSlider(Qt.Orientation.Horizontal)
             self.x_linear_slider.setRange(-50, 50)
-            self.x_linear_slider.setValue(int(self.state_manager.x_linear))
+            self.x_linear_slider.setValue(int(self.offset_manager.x_linear))
 
             self.y_linear_slider = QSlider(Qt.Orientation.Horizontal)
             self.y_linear_slider.setRange(-50, 50)
-            self.y_linear_slider.setValue(int(self.state_manager.y_linear))
+            self.y_linear_slider.setValue(int(self.offset_manager.y_linear))
 
             self.x_linear_label = QLabel(f"X Offset Factor: {self.x_linear_slider.value()}")
             self.y_linear_label = QLabel(f"Y Offset Factor: {self.y_linear_slider.value()}")
@@ -266,10 +265,10 @@ class CalibrationInterface(QWidget):
             self.x_linear_slider.valueChanged.connect(self._update_linear_value_x)
             self.y_linear_slider.valueChanged.connect(self._update_linear_value_y)
 
-            self.layout.addWidget(self.x_linear_slider)
             self.layout.addWidget(self.x_linear_label)
-            self.layout.addWidget(self.y_linear_slider)
+            self.layout.addWidget(self.x_linear_slider)
             self.layout.addWidget(self.y_linear_label)
+            self.layout.addWidget(self.y_linear_slider)
             self.layout.addWidget(self.linear_mirror)
 
     def _update_linear_value_x(self, value):
@@ -278,7 +277,7 @@ class CalibrationInterface(QWidget):
         """
         if self.x_linear_label:
             self.x_linear_label.setText(f"X Offset: {value}")
-        self.state_manager.x_linear = value
+        self.offset_manager.x_linear = value
 
     def _update_linear_value_y(self, value):
         """
@@ -286,16 +285,16 @@ class CalibrationInterface(QWidget):
         """
         if self.y_linear_label:
             self.y_linear_label.setText(f"Y Offset: {value}")
-        self.state_manager.y_linear = value
+        self.offset_manager.y_linear = value
 
     def _update_linear_mirror(self, state):
         """
         Enable or disable mirroring around the middle.
         """
         if state == 2:
-            self.state_manager.mirror_linear = True
+            self.offset_manager.mirror_linear = True
         else:
-            self.state_manager.mirror_linear = False
+            self.offset_manager.mirror_linear = False
 
     def destroy_all(self):
         """
@@ -385,13 +384,13 @@ class CalibrationInterface(QWidget):
         self.matrix_correction_label = None
 
 
-def run_calibration_interface(config, state_manager):
+def run_calibration_interface(config, offset_manager):
     """
     Entry point for calibration interface.
     This is run on its own thread.
     """
     app = QApplication(sys.argv)
-    window = CalibrationInterface(config, state_manager)
+    window = CalibrationInterface(config, offset_manager)
     window.show()
     app.exec()
 
