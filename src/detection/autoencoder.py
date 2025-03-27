@@ -11,11 +11,20 @@ logger = logging.getLogger(__name__)
 
 
 class AutoEncoder:
+    """
+    This autoencoder is for detecting obstruction on the pool table.
+    It takes images of the empty pool table and attempts to reconstruct these images.
+    If the reconstruction error is sufficiently high, it will notify the user.
+    """
     def __init__(self, config):
         self.config = config
         self.autoencoder = self.build_autoencoder()
 
     def build_autoencoder(self):
+        """
+        This function will load an autoencoder if it exists.
+        If it does not then it will build a new one using the provided images.
+        """
         model_path = self.config.get("autoencoder_model_path", "model/autoencoder_model.keras")
 
         if os.path.exists(model_path):
@@ -24,17 +33,10 @@ class AutoEncoder:
 
         # Define encoder
         input_img = Input(shape=(128, 128, 3))
-        x = Conv2D(32, (3, 3), activation='relu', padding='same')(input_img)
-        x = MaxPooling2D((2, 2), padding='same')(x)
-        x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
-        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = self._build_encoder(input_img)
 
-        # Decoder
-        x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
-        x = UpSampling2D((2, 2))(x)
-        x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
-        x = UpSampling2D((2, 2))(x)
-        decoded = Conv2D(3, (3, 3), activation='sigmoid', padding='same')(x)
+        # Build decoder
+        decoded = self._build_decoder(x)
 
         autoencoder = Model(input_img, decoded)
         autoencoder.compile(optimizer='adam', loss='mse')
@@ -55,10 +57,35 @@ class AutoEncoder:
         logger.info("Model trained and saved!")
 
         return autoencoder
+    
+    
+    def _build_encoder(self, input_img):
+        """
+        Helper function to build the encoder.
+        """
+        x = Conv2D(32, (3, 3), activation='relu', padding='same')(input_img)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        return x
+    
+    
+    def _build_decoder(self, x):
+        """
+        Helper function to build the decoder.
+        """
+        x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        decoded = Conv2D(3, (3, 3), activation='sigmoid', padding='same')(x)
+        return decoded
 
     
     def load_images(self, folder_path):
-        """Load and preprocess images from a given folder."""
+        """
+        Load and process the images from the provided path.
+        """
         images = []
         for filename in os.listdir(folder_path):
             if filename.lower().endswith((".jpg", ".png")):
@@ -82,16 +109,19 @@ class AutoEncoder:
 
 
     def detect_anomaly(self, table_only):
-        """Detect anomalies by comparing reconstruction errors."""
+        """
+        Detect anomalies by comparing reconstruction errors.
+        """
         if self.autoencoder is None:
             logger.error("Autoencoder model is not loaded or trained.")
             return False
 
         anomaly = cv2.resize(table_only, (128, 128)) / 255.0
-        anomaly = np.expand_dims(anomaly, axis=0)  # Ensure shape (1, 128, 128, 3)
+        anomaly = np.expand_dims(anomaly, axis=0)
 
         reconstructed = self.autoencoder.predict(anomaly, verbose=0)
-        mse = np.mean(np.square(anomaly - reconstructed))  # Compute Mean Squared Error
+        mse = np.mean(np.square(anomaly - reconstructed))
+
         logger.info(f"MSE: {mse}")
         return mse > self.config.get("anomaly_threshold", 0.01)
 

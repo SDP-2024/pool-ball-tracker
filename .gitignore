@@ -212,3 +212,4 @@ model/test_images
 model/old_model.pt
 config/calibration/*
 !config/calibration/wide_angle_cam
+src/logic/calibration_parameters.json
