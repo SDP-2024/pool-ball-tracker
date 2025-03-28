@@ -107,15 +107,16 @@ class OffsetManager:
         """
         cv2.setMouseCallback("Detection", self._select_cell)
         frame = self._draw_grid(frame)
+        frame = self._highlight_edited_cells(frame)
 
         if self.selected_cell is not None:
-            top_left = (self.selected_cell[0] * self.grid_size, self.selected_cell[1] * self.grid_size)
-            bottom_right = (top_left[0] + self.grid_size, top_left[1] + self.grid_size)
-            frame = cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)
+            top_left, bottom_right = self._get_cell_boundaries(self.selected_cell)
+            frame = cv2.rectangle(frame, top_left, bottom_right, (255, 0, 0), 2)
             if f"{self.grid_size}" in self.saved_grid and self.selected_cell in self.saved_grid[f"{self.grid_size}"]:
                 self.selected_cell_values = (self.saved_grid[f"{self.grid_size}"][self.selected_cell]['x'], self.saved_grid[f"{self.grid_size}"][self.selected_cell]['y'])
             else:
                 self.selected_cell_values = (0,0)
+
         
         # Save the current state of the grid
         if f"{self.grid_size}" not in self.saved_grid:
@@ -126,6 +127,30 @@ class OffsetManager:
         }
 
         return frame
+    
+    
+    def _highlight_edited_cells(self, frame):
+        """
+        This helper function highlights the cells on the grid that have offsets set.
+        This makes it easier to tell what cells still need to be calibrated.
+        """
+        current_grid = self.saved_grid.get(str(self.grid_size), {})
+        
+        for cell, offsets in current_grid.items():
+            if offsets["x"] != 0 or offsets["y"] != 0:
+                top_left, bottom_right = self._get_cell_boundaries(cell)
+                frame = cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)
+
+        return frame
+    
+
+    def _get_cell_boundaries(self, cell):
+        """
+        This gets the boundaries of a cell for drawing it to the screen.
+        """
+        top_left = (cell[0] * self.grid_size, cell[1] * self.grid_size)
+        bottom_right = (top_left[0] + self.grid_size, top_left[1] + self.grid_size)
+        return top_left, bottom_right
 
 
     def _select_cell(self, event, x, y, _, param):
