@@ -1,8 +1,10 @@
+from collections import defaultdict
 import cv2
 import numpy as np
 import logging
 import os
 import json
+import ast
 
 logger = logging.getLogger(__name__)
 
@@ -71,51 +73,24 @@ class OffsetManager:
 
     def _correct_position_grid(self, middlex, middley):
         """
-        Corrects ball position using scaling factor based on the coordinates
-
-        Args:
-            middlex (int): X-coordinate of the detected ball.
-            middley (int): Y-coordinate of the detected ball.
-
-        Returns:
-            tuple: Corrected (x, y) coordinates.
+        Corrects ball position using an offset for a grid cell.
         """
-        distance_from_center_x = self.config.output_width / 2 - middlex
-
-        offset_400 = (((self.config.output_width/2) + middlex) * 0.025)
-        offset_200 = (((self.config.output_width/2) + middlex) * 0.023)
-        offset_100 = (((self.config.output_width/2) + middlex) * 0.017)
+        cell = self._get_cell(middlex, middley)
+        grid = self.saved_grid.get(str(self.grid_size), {})
         
-        if distance_from_center_x < -400:
-            corrected_x = int(middlex + offset_400)
-        elif distance_from_center_x >= -400 and distance_from_center_x < -200:
-            corrected_x = int(middlex + offset_200)
-        elif distance_from_center_x >= -200 and distance_from_center_x < -100:
-            corrected_x = int(middlex + offset_100)
-        elif distance_from_center_x >= -100 and distance_from_center_x < 100:
-            corrected_x = middlex
-        elif distance_from_center_x >= 100 and distance_from_center_x < 200:
-            corrected_x = int(middlex - offset_100)
-        elif distance_from_center_x >= 200 and distance_from_center_x < 400:
-            corrected_x = int(middlex - offset_200)
-        elif distance_from_center_x >= 400:
-            corrected_x = int(middlex - offset_400)
+        # Convert cell to string format if that's how it's stored
+        cell_key = str(cell) if any(isinstance(k, str) for k in grid.keys()) else cell
+        
+        if cell_key in grid:
+            offsets = grid[cell_key]
+            corrected_x = middlex + offsets['x']
+            corrected_y = middley + offsets['y']
         else:
             corrected_x = middlex
-
-        if middley < 100:
             corrected_y = middley
-        elif middley >= 100 and middley < 200:
-            corrected_y = middley + (middley * 0.015)
-        elif middley >= 200 and middley < 400:
-            corrected_y = middley + (middley * 0.025)
-        elif middley >= 400:
-            corrected_y = middley + (middley * 0.035)
-        else:
-            corrected_y = middley
-
+        
         return int(corrected_x), int(corrected_y)
-    
+
 
     def _handle_grid(self, frame):
         """
@@ -144,17 +119,36 @@ class OffsetManager:
 
         return frame
 
+
     def _select_cell(self, event, x, y, _, param):
-        """
-        Callback function for selecting a cell in the grid.
-        """
+        """Handle cell selection with proper offset loading"""
         if event == cv2.EVENT_LBUTTONDOWN:
-            logger.info(f"Point selected: {(x, y)}")
-            self.selected_cell = self._get_cell(x, y)
+            new_cell = self._get_cell(x, y)
+            logger.info(f"Selected cell: {new_cell}")
+            if new_cell != self.selected_cell:
+                self.selected_cell = new_cell
+                
+                # Get current grid size
+                current_grid = self.saved_grid.get(self.grid_size, {})
+                
+                # Load offsets for this cell if they exist
+                if new_cell in current_grid:
+                    self.selected_cell_values = (
+                        current_grid[new_cell]['x'],
+                        current_grid[new_cell]['y']
+                    )
+                else:
+                    self.selected_cell_values = (0, 0)
+                
+                # Update GUI if available
+                if hasattr(self, 'gui') and self.gui:
+                    self.gui.update_cell_info()
+
 
     def _get_cell(self, x, y):
         return (x // self.grid_size, y // self.grid_size)
     
+
     def _draw_grid(self, frame):
         """
         Draws a grid to screen with the required cell size.
@@ -222,10 +216,21 @@ class OffsetManager:
         """
         Saves all of the parameters for the calibration settings to a json file.
         """
+
+        serializable_grid = {
+            str(grid_size): {
+                str(cell): offsets 
+                for cell, offsets in cells.items()
+                if offsets['x'] != 0 or offsets['y'] != 0  # Only include non-zero offsets
+            }
+            for grid_size, cells in self.saved_grid.items()
+            if cells
+        }
+
         data = {
             0: {"grid": {
                 "grid_size": self.grid_size,
-                #"saved_grid": {str(k): v for k, v in self.saved_grid.items()},
+                "saved_grid": serializable_grid,
             }},
             1: {"matrix_correction_factor": self.matrix_correction_factor},
             2: {"scaling": {
@@ -260,13 +265,41 @@ class OffsetManager:
             with open(self.parameters_path, "r") as f:
                 data = json.load(f)
 
-            # Validate the structure of the loaded data
-            if not all(key in data for key in ["0", "1", "2", "3"]):
-                logger.error["Incorrect parameters format"]
+            # Validate basic structure
+            if not all(str(k) in data for k in range(4)):
+                logger.error("Invalid parameters format")
                 return
 
-            self.grid_size = data["0"]["grid"]["grid_size"]
-            #self.saved_grid = {eval(k): v for k, v in data["0"]["grid"]["saved_grid"].items()}
+            # Load grid parameters
+            grid_data = data["0"]["grid"]
+            self.grid_size = grid_data["grid_size"]
+            
+            # Initialize saved_grid
+            self.saved_grid = {}
+            
+            if "saved_grid" in grid_data:
+                for grid_size_str, cells in grid_data["saved_grid"].items():
+                    try:
+                        grid_size = grid_size_str
+                        self.saved_grid[grid_size] = {}
+                        logger.info(grid_size)
+                        
+                        for cell_str, offsets in cells.items():
+                            # Parse cell coordinates from string "(x,y)"
+                            cell_str = cell_str.strip("()")
+                            x, y = map(int, cell_str.split(','))
+                            cell = (x, y)
+                            
+                            # Store the offsets
+                            self.saved_grid[grid_size][cell] = {
+                                'x': int(offsets['x']),
+                                'y': int(offsets['y'])
+                            }
+                            logger.debug(f"Loaded cell {cell} with offsets {offsets}")
+                    except Exception as e:
+                        logger.error(f"Error loading grid {grid_size_str}: {e}")
+                        continue
+           
             self.matrix_correction_factor = data["1"]["matrix_correction_factor"]
             self.x_scaling_factor = data["2"]["scaling"]["x_scaling_factor"]
             self.y_scaling_factor = data["2"]["scaling"]["y_scaling_factor"]
@@ -286,5 +319,12 @@ class OffsetManager:
         except Exception as e:
             logger.error(f"Unexpected error loading parameters: {e}")
             return
+
+
+    def set_gui_reference(self, gui):
+        """
+        Set a reference to the GUI for callbacks
+        """
+        self.gui = gui
 
 
