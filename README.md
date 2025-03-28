@@ -10,7 +10,7 @@ This project performs real time pool ball detection using a trained computer vis
 - **Camera calibration** - Calibrates the camera to remove distortion.
 - **Coordinate calibration** - Includes a custom tool for configuring offsets from the camera detections to real-world coordinates.
 - **Obstruction detection** - Uses an autoencoder to detect obstructions on the table for increased safety.
-- **Configuration** - Key features can be modified with an intuative configuration file, with support for multiple profiles.
+- **Configuration** - Key features can be modified with an intuative configuration file.
 - **Network Communication** - Communicates with the Pool-Pal app and gantry system.
 
 ---
@@ -37,7 +37,7 @@ To start the program, simply run:
 python main.py
 ```
 
-- This will create a default configuration file and profile.
+- This will create a default configuration file.
 
 ### **Point Selection**
 
@@ -46,6 +46,8 @@ For best results, please select the points as close as you can to the image belo
 ![Ideal points for corner selection](./images/ideal_points.jpg "Ideal Points")
 
 This will ensure that only the surface area of the pool table is tracked, leading to accurate coordinates of detected balls.
+
+Press `BACKSPACE` to remove the last placed point.
 
 ### **Configuration**
 
@@ -110,14 +112,6 @@ There are optional arguments for running the program.
 - `--collect-ae-data` - Collect images when holding `t` for use in the autoencoder. Images are saved to the path specified in config.
 - `--file [path]` - Use a static image for testing.
 - `--calibrate` - Loads the calibration tool.
-
-### **Running with Custom Config**
-
-To test with a different config profile:
-
-```bash
-python main.py --profile [name]
-```
 
 ## **License**
 
