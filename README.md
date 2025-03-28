@@ -39,6 +39,8 @@ python main.py
 
 - This will create a default configuration file.
 
+---
+
 ### **Point Selection**
 
 For best results, please select the points as close as you can to the image below.
@@ -48,6 +50,8 @@ For best results, please select the points as close as you can to the image belo
 This will ensure that only the surface area of the pool table is tracked, leading to accurate coordinates of detected balls.
 
 Press `BACKSPACE` to remove the last placed point.
+
+---
 
 ### **Configuration**
 
@@ -79,6 +83,8 @@ Optionally create a new configuration profile with:
 ```bash
 python main.py --create-profile [name]
 ```
+
+---
 
 ### **Calibration Tool**
 
