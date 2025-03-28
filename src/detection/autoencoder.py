@@ -19,6 +19,8 @@ class AutoEncoder:
     def __init__(self, config):
         self.config = config
         self.autoencoder = self.build_autoencoder()
+        # Hold the last few detections to calculate a rolling average, to reduce the sensitivity of the system.
+        self.detection_buffer = np.array([])
 
     def build_autoencoder(self):
         """
@@ -110,7 +112,7 @@ class AutoEncoder:
 
     def detect_anomaly(self, table_only):
         """
-        Detect anomalies by comparing reconstruction errors.
+        Detect anomalies by comparing reconstruction errors and checking threshold against a rolling average.
         """
         if self.autoencoder is None:
             logger.error("Autoencoder model is not loaded or trained.")
@@ -122,8 +124,22 @@ class AutoEncoder:
         reconstructed = self.autoencoder.predict(anomaly, verbose=0)
         mse = np.mean(np.square(anomaly - reconstructed))
 
-        logger.info(f"MSE: {mse}")
-        return mse > self.config.anomaly_threshold
+        return self._rolling_average(mse) > self.config.anomaly_threshold
+    
+
+    def _rolling_average(self, mse):
+        """
+        This function maintains a rolling average of the mse.
+        """
+        if len(self.detection_buffer) >= self.config.anomaly_buffer_size:
+            self.detection_buffer = np.delete(self.detection_buffer, 0) 
+        self.detection_buffer = np.append(self.detection_buffer, mse)
+
+        mean = np.mean(self.detection_buffer)
+        if abs(mean - self.config.anomaly_threshold) <= self.config.anomaly_threshold * 0.1:
+            logger.warning(f"Mean is within 10% of the threshold: {mean}")
+            
+        return mean
 
 
 

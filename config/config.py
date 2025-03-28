@@ -31,6 +31,7 @@ class ConfigManager:
             "clean_images_path": {"type": "string", "min" : 0, "default": ""},
             "model_training_path" : {"type": "string", "min": 0, "default": ""},
             "anomaly_threshold": {"type": "float", "min": 0, "max": 1.0, "default": 0.1},
+            "anomaly_buffer_size": {"type": "integer", "min": 1, "max": 50, "default": 6},
             "autoencoder_model_path": {"type": "string", "min" : 0, "default": ""},
             "network_update_interval": {"type": "float", "min": 0.01, "default": 0.5},
             "position_threshold": {"type": "integer", "min": 0, "max": 100, "default": 3},
