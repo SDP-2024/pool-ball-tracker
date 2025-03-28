@@ -14,7 +14,7 @@ class DetectionModel:
     """
     def __init__(self, config):
         self.config = config
-        self.model_path = config["detection_model_path"]
+        self.model_path = config.detection_model_path
         self.model = self.load_model()
         self.labels = self.model.names
         self.bbox_colors = [(255,0,0), (0,0,0), (0, 255, 0), (0,0,255), (255,255,255), (0,255,255)]
@@ -22,11 +22,11 @@ class DetectionModel:
         self.total_balls = 0
         self.hole_positions = [
             (0, 0),  # top-left
-            (self.config["output_width"] // 2, 0),  # top-middle
-            (self.config["output_width"], 0),  # top-right
-            (0, self.config["output_height"]),  # bottom-left
-            (self.config["output_width"] // 2, self.config["output_height"]),  # bottom-middle
-            (self.config["output_width"], self.config["output_height"])  # bottom-right
+            (self.config.output_width // 2, 0),  # top-middle
+            (self.config.output_width, 0),  # top-right
+            (0, self.config.output_height),  # bottom-left
+            (self.config.output_width // 2, self.config.output_height),  # bottom-middle
+            (self.config.output_width, self.config.output_height)  # bottom-right
         ]
         self.found_holes = []
 
@@ -138,18 +138,18 @@ class DetectionModel:
             
             conf = result.conf.item()
 
-            if conf > self.config["conf_threshold"]:
+            if conf > self.config.conf_threshold:
                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 2)
                 cv2.circle(frame, ((xmin+xmax)//2, ((ymin+ymax)//2)), 4, (0,0,255), -1)
                 label = f"{classname}: {int(conf*100)}%"
-                labelSize, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_thickness"])
+                labelSize, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, self.config.font_scale, self.config.font_thickness)
                 label_ymin = max(ymin, labelSize[1] + 10)
-                cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"])
+                cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, self.config.font_scale, self.config.font_color, self.config.font_thickness)
 
                 self.total_objects += 1
                 
-        cv2.putText(frame, f'Total number of objects: {self.total_objects}', (120,40), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
-        cv2.putText(frame, f'Total number of balls: {self.total_balls}', (120,60), cv2.FONT_HERSHEY_SIMPLEX, self.config["font_scale"], self.config["font_color"], self.config["font_thickness"]) # Draw count of objects
+        cv2.putText(frame, f'Total number of objects: {self.total_objects}', (120,40), cv2.FONT_HERSHEY_SIMPLEX, self.config.font_scale, self.config.font_color, self.config.font_thickness) # Draw count of objects
+        cv2.putText(frame, f'Total number of balls: {self.total_balls}', (120,60), cv2.FONT_HERSHEY_SIMPLEX, self.config.font_scale, self.config.font_color, self.config.font_thickness) # Draw count of objects
         cv2.imshow("Detection", frame)
 
 
@@ -170,7 +170,7 @@ class DetectionModel:
         Helper function to check if the hole is near an expected hole position.
         """
         for hole_x, hole_y in self.hole_positions:
-            if abs(middlex - hole_x) <= self.config["hole_threshold"] and abs(middley - hole_y) <= self.config["hole_threshold"]:
+            if abs(middlex - hole_x) <= self.config.hole_threshold and abs(middley - hole_y) <= self.config.hole_threshold:
                 return True
         return False
     
@@ -180,7 +180,7 @@ class DetectionModel:
         This prevents one hole being detected multiple times.
         """
         for hole_x, hole_y in self.found_holes:
-            if abs(middlex - hole_x) <= self.config["hole_threshold"] and abs(middley - hole_y) <= self.config["hole_threshold"]:
+            if abs(middlex - hole_x) <= self.config.hole_threshold and abs(middley - hole_y) <= self.config.hole_threshold:
                 return True
         return False
 

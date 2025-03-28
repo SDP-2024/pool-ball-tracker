@@ -106,9 +106,9 @@ def handle_calibration(config, frame):
     """
 
     mtx, dist, newcameramtx, roi = None, None, None, None
-    if not config.get("calibrate_camera", False):
+    if not config.calibrate_camera:
         return mtx, dist, newcameramtx, roi
-    calibration_folder = config.get("calibration_folder", "")
+    calibration_folder = config.calibration_folder
     if len(calibration_folder) < 1:
         logger.error("No calibration folder supplied. Please check config.yaml.")
         return mtx, dist, newcameramtx, roi
@@ -133,7 +133,7 @@ def undistort_camera(config, frame, mtx, dist, newcameramtx, roi):
     Returns:
         numpy.ndarray: The undistorted frame.
     """
-    if config.get("calibrate_camera", False):
+    if config.calibrate_camera:
         if frame is None or mtx is None or dist is None:
             logging.warning("Frame, mtx, or dist is none. Cannot undistort.")
             return frame

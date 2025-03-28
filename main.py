@@ -4,15 +4,17 @@ import time
 import logging
 from random import randint
 import threading
+from PyQt6.QtWidgets import QApplication
 
-from config.config_manager import load_config, create_profile
+from config.config import ConfigManager
+from config.config_gui import run_config_interface
 from src.processing.camera_calibration import *
 from src.processing.frame_processing import get_top_down_view
 from src.detection.detection_model import DetectionModel
 from src.detection.autoencoder import AutoEncoder
 from src.networking.network import Network
 from src.logic.game_state import StateManager
-from src.logic.calibration_tool import run_calibration_tool
+from src.logic.calibration_gui import run_calibration_interface
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +35,14 @@ def main():
 
     args = parse_args()
 
-    # Load config
-    profile_name = args.create_profile if args.create_profile else args.profile
-    if args.create_profile:
-        create_profile(name=profile_name)
-    config = load_config(profile_name)
+    if args.config and args.calibrate:
+        logger.error("Cannot run config and calibrate interface at the same time. Selecting config.")
+        args.calibrate = False
+
+    config = ConfigManager()
+    if args.config:
+        threading.Thread(target=run_config_interface, args=(config, )).start()
+
     
     if config is None:
         logger.error("Error getting config file.")
@@ -73,9 +78,9 @@ def main():
     
     table_rect = np.float32([
         [0, 0], 
-        [config["output_width"], 0], 
-        [0, config["output_height"]], 
-        [config["output_width"], config["output_height"]]
+        [config.output_width, 0], 
+        [0, config.output_height], 
+        [config.output_width, config.output_height]
     ])
     homography_matrix = cv2.getPerspectiveTransform(table_pts,table_rect)
 
@@ -83,7 +88,7 @@ def main():
 
     # If networking is enabled, start the server
     network = None
-    if config.get("use_networking", False):
+    if config.use_networking:
         network = Network(config)
         network.start()
         state_manager = StateManager(config, network, mtx, dist)
@@ -91,8 +96,8 @@ def main():
         state_manager = StateManager(config, None, mtx, dist)
 
     if args.calibrate:
-        threading.Thread(target=run_calibration_tool, args=(config, state_manager)).start()
-        state_manager.calibrating = True
+        threading.Thread(target=run_calibration_interface, args=(config, state_manager.offset_manager)).start()
+        state_manager.offset_manager.calibrating = True
 
     # Initialise detection model
     detection_model = DetectionModel(config)
@@ -141,8 +146,8 @@ def main():
             table_only = detection_model.extract_bounding_boxes(undistorted_frame, detections)
             is_anomaly = autoencoder.detect_anomaly(table_only)
             if is_anomaly:
-                cv2.rectangle(drawing_frame, (config["output_width"] // 2 - 350, config["output_height"] // 2 - 50), (config["output_width"] // 2 + 310, config["output_height"] // 2 + 10), (0, 0, 0), -1)
-                cv2.putText(drawing_frame, "Obstruction Detected", ((config["output_width"] // 2) - 350 , config["output_height"] // 2), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3, cv2.LINE_AA)
+                cv2.rectangle(drawing_frame, (config.output_width // 2 - 350, config.output_height // 2 - 50), (config.output_width // 2 + 310, config.output_height // 2 + 10), (0, 0, 0), -1)
+                cv2.putText(drawing_frame, "Obstruction Detected", ((config.output_width // 2) - 350 , config.output_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3, cv2.LINE_AA)
                 cv2.imshow("Detection", drawing_frame)
                 if network:
                     network.send_obstruction("true")
@@ -157,7 +162,7 @@ def main():
     if args.file is None:
         camera.release()
     cv2.destroyAllWindows()
-    if config["use_networking"]:
+    if config.use_networking:
         network.disconnect()
 
 
@@ -168,18 +173,11 @@ def parse_args():
     Returns:
         str: The name of the selected profile (default is 'default').
     """
-    parser = argparse.ArgumentParser(description="Select a config profile to use.")
+    parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--profile",
-        type=str,
-        default='default',
-        help="The name of the profile to use (default: `default`)"
-    )
-
-    parser.add_argument(
-        "--create-profile",
-        type=str, 
-        help="Create a new profile with the specified name."
+        "--config",
+        action='store_true',
+        default=False
     )
 
     parser.add_argument(
@@ -231,7 +229,7 @@ def load_camera(config):
     # Attempt to load cameras
     try:
         logger.info("Starting camera...")
-        camera = cv2.VideoCapture(config["camera_port"], cv2.CAP_MSMF)
+        camera = cv2.VideoCapture(config.camera_port, cv2.CAP_MSMF)
         camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         time.sleep(2.0)  # Allow camera to warm up
@@ -242,7 +240,7 @@ def load_camera(config):
 
 
 def capture_frame_for_training(config, frame):
-    path=f"./{config['model_training_path']}"
+    path=f"./{config.model_training_path}/"
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -255,7 +253,7 @@ def capture_frame_for_training(config, frame):
 
 
 def capture_frame(config, frame):
-    path = f"./{config['clean_images_path']}"
+    path = f"./{config.clean_images_path}/"
     if not os.path.exists(path):
         os.makedirs(path)
     
@@ -268,7 +266,7 @@ def capture_frame(config, frame):
 
 
 def reset_ae_data(config):
-    path = f"./{config['clean_images_path']}/"
+    path = f"./{config.clean_images_path}/"
     if os.path.exists(path):
         for file in os.listdir(path):
             os.remove(path + file)
