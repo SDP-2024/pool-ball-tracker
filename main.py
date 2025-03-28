@@ -126,9 +126,9 @@ def main():
         
         # Process optional arguments
         if args.collect_ae_data: 
-            capture_frame(config, undistorted_frame)
+            capture_frame(config.clean_images_path, undistorted_frame)
         if args.collect_model_images:
-            capture_frame_for_training(config, undistorted_frame)
+            capture_frame(config.model_training_path, undistorted_frame)
 
         # Copy frame for drawing
         drawing_frame = undistorted_frame.copy()
@@ -167,10 +167,7 @@ def main():
 
 def parse_args():
     """
-    Parses command-line arguments to select a configuration profile.
-
-    Returns:
-        str: The name of the selected profile (default is 'default').
+    Parses command-line arguments to run the program with the flags.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -225,7 +222,10 @@ def parse_args():
 
 
 def load_camera(config):
-    # Attempt to load cameras
+    """
+    This function loads the camera from the camera port specified in the config.
+    It uses the MSMF backend to allow the camera to run at it's native resolution.
+    """
     try:
         logger.info("Starting camera...")
         camera = cv2.VideoCapture(config.camera_port, cv2.CAP_MSMF)
@@ -238,33 +238,26 @@ def load_camera(config):
         return
 
 
-def capture_frame_for_training(config, frame):
-    path=f"./{config.model_training_path}/"
+def capture_frame(path, frame):
+    """
+    This function captures a the current frame and saves it to the specified path.
+    """
+    path = f"./{path}/"
     if not os.path.exists(path):
         os.makedirs(path)
 
     if cv2.waitKey(1) & 0xFF == ord('t'):
         num = randint(0, 10000)
-        filename = f"{path}train_{num}.jpg"
-        cv2.imwrite(filename, frame)
-        time.sleep(0.1)
-        logger.info(f"Image {num} saved")
-
-
-def capture_frame(config, frame):
-    path = f"./{config.clean_images_path}/"
-    if not os.path.exists(path):
-        os.makedirs(path)
-    
-    if cv2.waitKey(1) & 0xFF == ord('t'):
-        num = randint(0, 10000)
-        filename = f"{path}clean_{num}.jpg"
+        filename = f"{path}image_{num}.jpg"
         cv2.imwrite(filename, frame)
         time.sleep(0.1)
         logger.info(f"Image {num} saved")
 
 
 def reset_ae_data(config):
+    """
+    This deletes the clean images path so that the autoencoder can be made with fresh images.
+    """
     path = f"./{config.clean_images_path}/"
     if os.path.exists(path):
         for file in os.listdir(path):
@@ -273,6 +266,9 @@ def reset_ae_data(config):
 
 
 def reset_points():
+    """
+    This deletes the table points so that new points can be selected.
+    """
     path = "./config/table_points.json"
     if os.path.exists(path):
         os.remove(path)
