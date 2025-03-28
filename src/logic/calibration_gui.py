@@ -93,11 +93,7 @@ class CalibrationInterface(QWidget):
 
             self.grid_slider.valueChanged.connect(self._update_grid_size)
 
-<<<<<<< HEAD:src/logic/calibration_tool.py
-            if self.state_manager.selected_cell is not None:
-=======
             if self.offset_manager.selected_cell is not None:
->>>>>>> origin/industry-day:src/logic/calibration_gui.py
                 self.cell_x_offset_slider = QSlider(Qt.Orientation.Horizontal)
                 self.cell_x_offset_slider.setRange(-50, 50)
                 self.cell_x_offset_slider.setValue(self.offset_manager.selected_cell_values[0])
@@ -114,18 +110,12 @@ class CalibrationInterface(QWidget):
 
 
             self.layout.addWidget(self.grid_label)
-<<<<<<< HEAD:src/logic/calibration_tool.py
-            self.layout.addWidget(self.cell_x_offset_slider)
-=======
             self.layout.addWidget(self.grid_slider)
->>>>>>> origin/industry-day:src/logic/calibration_gui.py
             self.layout.addWidget(self.cell_x_offset_label)
             self.layout.addWidget(self.cell_x_offset_slider)
             self.layout.addWidget(self.cell_y_offset_label)
             self.layout.addWidget(self.cell_y_offset_slider)
 
-<<<<<<< HEAD:src/logic/calibration_tool.py
-=======
     def update_cell_info(self):
         """Update the cell label and offset sliders when a new cell is selected"""
         if not hasattr(self.offset_manager, 'selected_cell'):
@@ -167,7 +157,6 @@ class CalibrationInterface(QWidget):
 
 
 
->>>>>>> origin/industry-day:src/logic/calibration_gui.py
     
     def _update_grid_size(self, value):
         """
