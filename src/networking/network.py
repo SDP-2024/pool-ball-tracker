@@ -31,8 +31,8 @@ class Network:
             self.reconnect()
 
         @self.sio.on("requestPositions")
-        def handle_request_positions(sid, data):
-            self._handle_request_positions(sid, data)
+        def handle_request_positions(data):
+            self._handle_request_positions(data)
 
     def _reconnect(self):
         while True:
@@ -51,7 +51,7 @@ class Network:
             logger.error(f"Connection failed: {e}")
             self.reconnect()
 
-    def _handle_request_positions(self, sid, data):
+    def _handle_request_positions(self, data):
         self.positions_requested = True
 
     def send_balls(self, balls):
