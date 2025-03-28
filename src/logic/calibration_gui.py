@@ -117,8 +117,11 @@ class CalibrationInterface(QWidget):
             self.layout.addWidget(self.cell_y_offset_label)
             self.layout.addWidget(self.cell_y_offset_slider)
 
+
     def update_cell_info(self):
-        """Update the cell label and offset sliders when a new cell is selected"""
+        """
+        Update the cell label and offset sliders when a new cell is selected.
+        """
         if not hasattr(self.offset_manager, 'selected_cell'):
             return
 
@@ -157,8 +160,6 @@ class CalibrationInterface(QWidget):
             self.cell_y_offset_label.setText(f"Y Offset: {y_offset}")
 
 
-
-    
     def _update_grid_size(self, value):
         """
         Updates the state with the grid size.

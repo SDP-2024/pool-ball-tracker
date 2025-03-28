@@ -1,14 +1,15 @@
-from collections import defaultdict
 import cv2
 import numpy as np
 import logging
 import os
 import json
-import ast
 
 logger = logging.getLogger(__name__)
 
 class OffsetManager:
+    """
+    This class handles the offset of the ball with the purpose of translating the detected coordinates to real-world coordinates.
+    """
     def __init__(self, config, mtx, dist):
         self.config = config
         # Calibration parameters
@@ -37,6 +38,13 @@ class OffsetManager:
 
 
     def update(self, frame, middlex, middley):
+        """
+        This is the main update function for the ball. This sets the offset based on the calibration mode.
+        Grid mode: A different offset per cell in the grid of the table. Grid size can be changed.
+        Matrix mode: Uses the calculated camera matrix to adjust the offset based on distortion coefficients.
+        Scaling mode: Adjusts the offset based on the x and y coordinates. Can be mirrored around the camera.
+        Linear mode: A constant offset on the x and y regardless of the position on the table.
+        """
         if self.calibration_mode == 0:
             if self.calibrating:
                 frame = self._handle_grid(frame)
@@ -121,7 +129,9 @@ class OffsetManager:
 
 
     def _select_cell(self, event, x, y, _, param):
-        """Handle cell selection with proper offset loading"""
+        """
+        Handles the current cell selected, loads the offset if one has been set.
+        """
         if event == cv2.EVENT_LBUTTONDOWN:
             new_cell = self._get_cell(x, y)
             logger.info(f"Selected cell: {new_cell}")
@@ -146,6 +156,9 @@ class OffsetManager:
 
 
     def _get_cell(self, x, y):
+        """
+        Helper function to get the current cell on the grid.
+        """
         return (x // self.grid_size, y // self.grid_size)
     
 

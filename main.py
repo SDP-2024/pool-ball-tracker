@@ -4,7 +4,6 @@ import time
 import logging
 from random import randint
 import threading
-from PyQt6.QtWidgets import QApplication
 
 from config.config import ConfigManager
 from config.config_gui import run_config_interface

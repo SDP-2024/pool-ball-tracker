@@ -1,9 +1,6 @@
 import time
 import logging
 import cv2
-import numpy as np
-import os
-import json
 
 from src.logic.offset_manager import OffsetManager
 
@@ -164,6 +161,7 @@ class StateManager():
             else:
                 logger.info(f"Sending balls: {balls}")
         self._send_white_ball(white_ball, current_time)
+
 
     def _send_white_ball(self, ball, current_time):
         if ball:
