@@ -282,7 +282,6 @@ class OffsetManager:
                     try:
                         grid_size = grid_size_str
                         self.saved_grid[grid_size] = {}
-                        logger.info(grid_size)
                         
                         for cell_str, offsets in cells.items():
                             # Parse cell coordinates from string "(x,y)"
