@@ -111,7 +111,7 @@ class OffsetManager:
 
         if self.selected_cell is not None:
             top_left, bottom_right = self._get_cell_boundaries(self.selected_cell)
-            frame : cv2.Mat = cv2.rectangle(frame, top_left, bottom_right, (255, 0, 0), 2)
+            frame : cv2.Mat = cv2.rectangle(frame, top_left, bottom_right, (255, 255, 0), 2)
             if f"{self.grid_size}" in self.saved_grid and self.selected_cell in self.saved_grid[f"{self.grid_size}"]:
                 self.selected_cell_values = (self.saved_grid[f"{self.grid_size}"][self.selected_cell]['x'], self.saved_grid[f"{self.grid_size}"][self.selected_cell]['y'])
             else:
