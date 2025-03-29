@@ -14,10 +14,10 @@ class Network:
     def __init__(self, config):
         self.config = config
         self.sio = socketio.Client()
-        self.positions_requested = False
+        self.positions_requested : bool = False
 
         @self.sio.event
-        def connect():
+        def connect() -> None:
             logger.info("Connected to server.")
             self.sio.emit("join", "ballPositions")
             self.sio.emit("join", "obstructionDetected")
@@ -25,16 +25,19 @@ class Network:
             self.sio.emit("join", "requestPositions")
             self.sio.emit("join", "correctedPositions")
 
+
         @self.sio.event
-        def disconnect():
+        def disconnect() -> None:
             logger.warning("Disconnected from server.")
             self.reconnect()
 
+
         @self.sio.on("requestPositions")
-        def handle_request_positions(data):
+        def handle_request_positions(data) -> None:
             self._handle_request_positions(data)
 
-    def _reconnect(self):
+
+    def _reconnect(self) -> None:
         while True:
             try:
                 logger.info("Attempting to reconnect...")
@@ -44,17 +47,20 @@ class Network:
                 logger.error(f"Reconnection failed: {e}")
                 time.sleep(3)
 
-    def connect(self):
+
+    def connect(self) -> None:
         try:
             self.sio.connect(self.config.poolpal_url, wait=False)
         except Exception as e:
             logger.error(f"Connection failed: {e}")
             self.reconnect()
 
-    def _handle_request_positions(self, data):
+
+    def _handle_request_positions(self, data) -> None:
         self.positions_requested = True
 
-    def send_balls(self, balls):
+
+    def send_balls(self, balls : dict) -> None:
         try:
             logger.info(f"Sending balls: {balls}")
             self.sio.emit("ballPositions", balls)
@@ -62,7 +68,8 @@ class Network:
             self._handle_error(e, "ballsPositions")
             pass
 
-    def send_corrected_white_ball(self, ball):
+
+    def send_corrected_white_ball(self, ball : dict) -> None:
         try:
             logger.info(f"Sending ball: {ball}")
             self.sio.emit("correctedPositions", ball)
@@ -70,7 +77,8 @@ class Network:
             self._handle_error(e, "correctedPositions")
             pass
     
-    def send_end_of_turn(self, end_of_turn):
+
+    def send_end_of_turn(self, end_of_turn : str) -> None:
         try:
             logger.info(f"Sending end of turn: {end_of_turn}")
             self.sio.emit("endOfTurn", end_of_turn)
@@ -78,7 +86,8 @@ class Network:
             self._handle_error(e, "endOfTurn")
             pass
 
-    def send_obstruction(self, obstruction_detected):
+
+    def send_obstruction(self, obstruction_detected : str) -> None:
         try:
             logger.info(f"Sending obstruction detected: {obstruction_detected}")
             self.sio.emit("obstructionDetected", obstruction_detected)
@@ -86,14 +95,18 @@ class Network:
             self._handle_error(e, "obstructionDetected")
             pass
 
-    def disconnect(self):
+
+    def disconnect(self) -> None:
         self.sio.disconnect()
 
-    def start(self):
+
+    def start(self) -> None:
         threading.Thread(target=self.connect, daemon=True).start()
 
-    def reconnect(self):
+
+    def reconnect(self) -> None:
         threading.Thread(target=self._reconnect, daemon=True).start()
 
-    def _handle_error(self, e, name):
+
+    def _handle_error(self, e, name) -> None:
         logger.error(f"Failed to send {name}: {e}")

@@ -10,7 +10,7 @@ class OffsetManager:
     """
     This class handles the offset of the ball with the purpose of translating the detected coordinates to real-world coordinates.
     """
-    def __init__(self, config, mtx, dist):
+    def __init__(self, config, mtx : np.ndarray | None, dist : np.ndarray | None):
         self.config = config
         # Calibration parameters
         self.calibrating = False
@@ -18,26 +18,26 @@ class OffsetManager:
         self.dist = dist
         self.calibration_mode = self.config.calibration_mode
 
-        self.grid_size = 100
-        self.selected_cell = (0,0)
-        self.selected_cell_values = (0,0)
-        self.saved_grid = {} # Saved grids indexed by the grid size
+        self.grid_size : int = 100
+        self.selected_cell : tuple[int, int] = (0,0)
+        self.selected_cell_values : tuple[int, int] = (0,0)
+        self.saved_grid : dict = {} # Saved grids indexed by the grid size
 
-        self.x_scaling_factor = 0
-        self.y_scaling_factor = 0
-        self.mirror_scaling = False
+        self.x_scaling_factor : float = 0
+        self.y_scaling_factor : float = 0
+        self.mirror_scaling : bool = False
 
-        self.x_linear = 0
-        self.y_linear = 0
-        self.mirror_linear = False
+        self.x_linear : int = 0
+        self.y_linear : int = 0
+        self.mirror_linear : bool = False
 
-        self.matrix_correction_factor = 0
+        self.matrix_correction_factor : float = 0
 
-        self.parameters_path = "./src/logic/calibration_parameters.json"
+        self.parameters_path : str = "./src/logic/calibration_parameters.json"
         self.load_all_parameters()
 
 
-    def update(self, frame, middlex, middley):
+    def update(self, frame : cv2.Mat, middlex : int, middley : int) -> tuple[int, int]:
         """
         This is the main update function for the ball. This sets the offset based on the calibration mode.
         Grid mode: A different offset per cell in the grid of the table. Grid size can be changed.
@@ -60,58 +60,58 @@ class OffsetManager:
         return int(corrected_middlex), int(corrected_middley)
     
 
-    def _correct_position_scaling(self, middlex, middley):
+    def _correct_position_scaling(self, middlex : int, middley : int) -> tuple[int, int]:
         """
         Scale the coordinates by a constant scaling factor
         """
         if not self.mirror_scaling:
-            corrected_x = middlex + (middlex * self.x_scaling_factor)
-            corrected_y = middley + (middley * self.y_scaling_factor)
+            corrected_x : int = middlex + (middlex * self.x_scaling_factor)
+            corrected_y : int = middley + (middley * self.y_scaling_factor)
 
             return int(corrected_x), int(corrected_y)
         else:
             if middlex <= self.config.output_width // 2:
-                corrected_x = middlex + ((self.config.output_width // 2 - middlex) * self.x_scaling_factor)
+                corrected_x : int = middlex + ((self.config.output_width // 2 - middlex) * self.x_scaling_factor)
             else:
-                corrected_x = middlex - ((middlex - self.config.output_width // 2) * self.x_scaling_factor)
-            corrected_y = middley + (middley * self.y_scaling_factor)
+                corrected_x : int = middlex - ((middlex - self.config.output_width // 2) * self.x_scaling_factor)
+            corrected_y : int = middley + (middley * self.y_scaling_factor)
 
             return int(corrected_x), int(corrected_y)
 
 
-    def _correct_position_grid(self, middlex, middley):
+    def _correct_position_grid(self, middlex : int, middley : int) -> tuple[int, int]:
         """
         Corrects ball position using an offset for a grid cell.
         """
-        cell = self._get_cell(middlex, middley)
-        grid = self.saved_grid.get(str(self.grid_size), {})
+        cell : tuple[int, int] = self._get_cell(middlex, middley)
+        grid : dict = self.saved_grid.get(str(self.grid_size), {})
         
         # Convert cell to string format if that's how it's stored
         cell_key = str(cell) if any(isinstance(k, str) for k in grid.keys()) else cell
         
         if cell_key in grid:
             offsets = grid[cell_key]
-            corrected_x = middlex + offsets['x']
-            corrected_y = middley + offsets['y']
+            corrected_x : int = middlex + offsets['x']
+            corrected_y : int = middley + offsets['y']
         else:
-            corrected_x = middlex
-            corrected_y = middley
+            corrected_x : int = middlex
+            corrected_y : int = middley
         
         return int(corrected_x), int(corrected_y)
 
 
-    def _handle_grid(self, frame):
+    def _handle_grid(self, frame : cv2.Mat) -> cv2.Mat:
         """
         This function handles the grid.
         It detects which cell is selected, and works with the calibration tool to track offsets per cell.
         """
         cv2.setMouseCallback("Detection", self._select_cell)
-        frame = self._draw_grid(frame)
-        frame = self._highlight_edited_cells(frame)
+        frame : cv2.Mat = self._draw_grid(frame)
+        frame : cv2.Mat = self._highlight_edited_cells(frame)
 
         if self.selected_cell is not None:
             top_left, bottom_right = self._get_cell_boundaries(self.selected_cell)
-            frame = cv2.rectangle(frame, top_left, bottom_right, (255, 0, 0), 2)
+            frame : cv2.Mat = cv2.rectangle(frame, top_left, bottom_right, (255, 0, 0), 2)
             if f"{self.grid_size}" in self.saved_grid and self.selected_cell in self.saved_grid[f"{self.grid_size}"]:
                 self.selected_cell_values = (self.saved_grid[f"{self.grid_size}"][self.selected_cell]['x'], self.saved_grid[f"{self.grid_size}"][self.selected_cell]['y'])
             else:
@@ -129,42 +129,42 @@ class OffsetManager:
         return frame
     
     
-    def _highlight_edited_cells(self, frame):
+    def _highlight_edited_cells(self, frame : cv2.Mat) -> cv2.Mat:
         """
         This helper function highlights the cells on the grid that have offsets set.
         This makes it easier to tell what cells still need to be calibrated.
         """
-        current_grid = self.saved_grid.get(str(self.grid_size), {})
+        current_grid : dict = self.saved_grid.get(str(self.grid_size), {})
         
         for cell, offsets in current_grid.items():
             if offsets["x"] != 0 or offsets["y"] != 0:
                 top_left, bottom_right = self._get_cell_boundaries(cell)
-                frame = cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)
+                frame : cv2.Mat = cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)
 
         return frame
     
 
-    def _get_cell_boundaries(self, cell):
+    def _get_cell_boundaries(self, cell : tuple[int, int]) -> tuple[tuple[int, int], tuple[int, int]]:
         """
         This gets the boundaries of a cell for drawing it to the screen.
         """
-        top_left = (cell[0] * self.grid_size, cell[1] * self.grid_size)
-        bottom_right = (top_left[0] + self.grid_size, top_left[1] + self.grid_size)
+        top_left : tuple[int, int] = (cell[0] * self.grid_size, cell[1] * self.grid_size)
+        bottom_right : tuple[int, int] = (top_left[0] + self.grid_size, top_left[1] + self.grid_size)
         return top_left, bottom_right
 
 
-    def _select_cell(self, event, x, y, _, param):
+    def _select_cell(self, event, x, y, _, param) -> None:
         """
         Handles the current cell selected, loads the offset if one has been set.
         """
         if event == cv2.EVENT_LBUTTONDOWN:
-            new_cell = self._get_cell(x, y)
+            new_cell : tuple[int, int] = self._get_cell(x, y)
             logger.info(f"Selected cell: {new_cell}")
             if new_cell != self.selected_cell:
                 self.selected_cell = new_cell
                 
                 # Get current grid size
-                current_grid = self.saved_grid.get(self.grid_size, {})
+                current_grid : dict = self.saved_grid.get(self.grid_size, {})
                 
                 # Load offsets for this cell if they exist
                 if new_cell in current_grid:
@@ -180,14 +180,14 @@ class OffsetManager:
                     self.gui.update_cell_info()
 
 
-    def _get_cell(self, x, y):
+    def _get_cell(self, x : int, y : int) -> tuple[int, int]:
         """
         Helper function to get the current cell on the grid.
         """
         return (x // self.grid_size, y // self.grid_size)
     
 
-    def _draw_grid(self, frame):
+    def _draw_grid(self, frame : cv2.Mat) -> cv2.Mat:
         """
         Draws a grid to screen with the required cell size.
         """
@@ -202,14 +202,14 @@ class OffsetManager:
         return frame
     
 
-    def _correct_position_matrix(self, middlex, middley):
+    def _correct_position_matrix(self, middlex : int, middley : int) -> tuple[int, int]:
         """
         Corrects ball position using camera calibration and non-linear distortion correction.
         """
-        src_points = np.array([[[middlex, middley]]], dtype=np.float32)
+        src_points : np.ndarray = np.array([[[middlex, middley]]], dtype=np.float32)
 
         # Undistort the point using the camera matrix and distortion coefficients
-        undistorted_points = cv2.undistortPoints(
+        undistorted_points : cv2.Mat = cv2.undistortPoints(
             src_points, self.camera_matrix, self.dist, P=self.camera_matrix
         )
         corrected_x, corrected_y = undistorted_points[0][0]
@@ -232,7 +232,7 @@ class OffsetManager:
         return int(corrected_x), int(corrected_y)
 
 
-    def _correct_position_linear(self, middlex, middley):
+    def _correct_position_linear(self, middlex : int, middley : int) -> tuple[int, int]:
         """
         Simply offsets the ball coordinates by a fixed amount
         """
@@ -250,12 +250,12 @@ class OffsetManager:
             return int(corrected_x), int(corrected_y)
         
 
-    def save_all_parameters(self):
+    def save_all_parameters(self) -> None:
         """
         Saves all of the parameters for the calibration settings to a json file.
         """
 
-        serializable_grid = {
+        serializable_grid : dict = {
             str(grid_size): {
                 str(cell): offsets 
                 for cell, offsets in cells.items()
@@ -265,7 +265,7 @@ class OffsetManager:
             if cells
         }
 
-        data = {
+        data : dict = {
             0: {"grid": {
                 "grid_size": self.grid_size,
                 "saved_grid": serializable_grid,
@@ -291,7 +291,7 @@ class OffsetManager:
             logger.error(f"Error saving parameters: {e}")
 
 
-    def load_all_parameters(self):
+    def load_all_parameters(self) -> None:
         """
         Loads all of the calibration settings into the state manager.
         """
@@ -309,11 +309,11 @@ class OffsetManager:
                 return
 
             # Load grid parameters
-            grid_data = data["0"]["grid"]
-            self.grid_size = grid_data["grid_size"]
+            grid_data : dict = data["0"]["grid"]
+            self.grid_size : dict = grid_data["grid_size"]
             
             # Initialize saved_grid
-            self.saved_grid = {}
+            self.saved_grid : dict = {}
             
             if "saved_grid" in grid_data:
                 for grid_size_str, cells in grid_data["saved_grid"].items():

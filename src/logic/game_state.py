@@ -16,15 +16,15 @@ class StateManager():
         self.config = config
         self.previous_state = None
         self.network = network
-        self.time_between_updates = self.config.network_update_interval
-        self.time_since_last_update = time.time() - self.time_between_updates
-        self.end_of_turn = False
-        self.not_moved_counter = 0
+        self.time_between_updates : float = self.config.network_update_interval
+        self.time_since_last_update : float = time.time() - self.time_between_updates
+        self.end_of_turn : bool = False
+        self.not_moved_counter : int = 0
 
         self.offset_manager = OffsetManager(config, mtx, dist)
 
 
-    def update(self, data, labels, frame):
+    def update(self, data : tuple, labels : dict, frame : cv2.Mat) -> None:
         """
         Main update function for the game state.
         It gets the current ball positions and compares it to the previous state.
@@ -40,20 +40,18 @@ class StateManager():
             self.previous_state = None
             self.network.positions_requested = False
 
-        current_time = time.time()
+        current_time : float = time.time()
         if current_time - self.time_since_last_update < self.time_between_updates: return
 
-        balls = {}
-        corrected_white_ball = {}
+        balls : dict = {}
+        corrected_white_ball : dict = {}
 
-        num_balls = 0
-        self.not_moved_counter = 0
+        num_balls : int = 0
+        self.not_moved_counter : int = 0
 
-        if data is None or len(data) == 0 or data[0].boxes is None:
-            boxes = []
-        else:
+        boxes : list = []
+        if data is not None or len(data) != 0 or data[0].boxes is not None:
             boxes = data[0].boxes
-
 
         # Process detected balls
         for ball in boxes:
@@ -98,17 +96,17 @@ class StateManager():
         self._update_and_send_balls(balls, corrected_white_ball, current_time)
 
 
-    def _get_ball_info(self, ball, labels):
+    def _get_ball_info(self, ball, labels : dict) -> tuple[str, int, int]:
         """
         Gets the important info of the ball that is passed to it
         """
         xyxy_tensor = ball.xyxy.cpu()
         xyxy = xyxy_tensor.numpy().squeeze()
         xmin, ymin, xmax, ymax = map(int, xyxy.astype(int))
-        classidx = int(ball.cls.item())
-        classname = labels[classidx]
-        _middlex = int((xmin + xmax) // 2)
-        _middley = int((ymin + ymax) // 2)
+        classidx : int = int(ball.cls.item())
+        classname : str = labels[classidx]
+        _middlex : int = int((xmin + xmax) // 2)
+        _middley : int = int((ymin + ymax) // 2)
 
         # Clamp coordinates to boundaries
         middlex, middley = self._coords_clamped(_middlex, _middley)
@@ -116,27 +114,27 @@ class StateManager():
         return classname, middlex, middley
     
 
-    def _coords_clamped(self, _middlex, _middley):
+    def _coords_clamped(self, _middlex : int, _middley : int) -> tuple[int, int]:
         """
         Clamps the coordinates to the boundaries of the table
         """
-        middlex = self.config.output_width if _middlex > self.config.output_width else _middlex
-        middley = self.config.output_height if _middley > self.config.output_height else _middley
-        middlex = 0 if middlex < 0 else middlex
-        middley = 0 if middley < 0 else middley
+        middlex : int = self.config.output_width if _middlex > self.config.output_width else _middlex
+        middley : int = self.config.output_height if _middley > self.config.output_height else _middley
+        middlex : int = 0 if middlex < 0 else middlex
+        middley : int = 0 if middley < 0 else middley
         return int(middlex), int(middley)
     
 
-    def _has_moved(self, prev_ball, middlex, middley):
+    def _has_moved(self, prev_ball, middlex : int, middley : int) -> bool:
         """
         Checks if the ball is close to a previous position
         """
-        dx = abs(prev_ball["x"] - middlex)
-        dy = abs(prev_ball["y"] - middley)
+        dx : int = abs(prev_ball["x"] - middlex)
+        dy : int = abs(prev_ball["y"] - middley)
         return dx <= self.config.position_threshold and dy <= self.config.position_threshold
     
 
-    def _handle_end_of_turn(self):
+    def _handle_end_of_turn(self) -> None:
         """
         Sends message if the end of turn is detected
         """
@@ -148,7 +146,7 @@ class StateManager():
                 logger.info("No movement detected, turn ended.")
 
 
-    def _update_and_send_balls(self, balls, white_ball, current_time):
+    def _update_and_send_balls(self, balls, white_ball, current_time : float) -> None:
         """
         Sends the balls if new positions are detected
         """
@@ -163,7 +161,7 @@ class StateManager():
         self._send_white_ball(white_ball, current_time)
 
 
-    def _send_white_ball(self, ball, current_time):
+    def _send_white_ball(self, ball, current_time : float) -> None:
         if ball:
             self.time_since_last_update = current_time
             if self.network:
