@@ -20,8 +20,10 @@ class OffsetManager:
 
         self.grid_size : int = 100
         self.selected_cell : tuple[int, int] = (0,0)
-        self.selected_cell_values : tuple[int, int] = (0,0)
-        self.saved_grid : dict = {} # Saved grids indexed by the grid size
+        self.selected_cell_values_linear : tuple[int, int] = (0,0)
+        self.saved_grid_linear : dict = {} # Saved grids indexed by the grid size
+        self.selected_cell_values_scaling : tuple[float, float] = (0.0, 0.0)
+        self.saved_grid_scaling : dict = {}
 
         self.x_scaling_factor : float = 0
         self.y_scaling_factor : float = 0
@@ -48,12 +50,16 @@ class OffsetManager:
         if self.calibration_mode == 0:
             if self.calibrating:
                 frame = self._handle_grid(frame)
-            corrected_middlex, corrected_middley = self._correct_position_grid(middlex, middley)
+            corrected_middlex, corrected_middley = self._correct_position_grid_linear(middlex, middley)
         elif self.calibration_mode == 1:
-            corrected_middlex, corrected_middley = self._correct_position_matrix(middlex, middley)
+            if self.calibrating:
+                frame = self._handle_grid(frame)
+            corrected_middlex, corrected_middley = self._correct_position_grid_scaling(middlex, middley)
         elif self.calibration_mode == 2:
-            corrected_middlex, corrected_middley = self._correct_position_scaling(middlex, middley)
+            corrected_middlex, corrected_middley = self._correct_position_matrix(middlex, middley)
         elif self.calibration_mode == 3:
+            corrected_middlex, corrected_middley = self._correct_position_scaling(middlex, middley)
+        elif self.calibration_mode == 4:
             corrected_middlex, corrected_middley = self._correct_position_linear(middlex, middley)
         else:
             corrected_middlex, corrected_middley = middlex, middley
@@ -65,26 +71,26 @@ class OffsetManager:
         Scale the coordinates by a constant scaling factor
         """
         if not self.mirror_scaling:
-            corrected_x : int = middlex + (middlex * self.x_scaling_factor)
-            corrected_y : int = middley + (middley * self.y_scaling_factor)
+            corrected_x : float = middlex + (middlex * self.x_scaling_factor)
+            corrected_y : float = middley + (middley * self.y_scaling_factor)
 
             return int(corrected_x), int(corrected_y)
         else:
             if middlex <= self.config.output_width // 2:
-                corrected_x : int = middlex + ((self.config.output_width // 2 - middlex) * self.x_scaling_factor)
+                corrected_x : float = middlex + ((self.config.output_width // 2 - middlex) * self.x_scaling_factor)
             else:
-                corrected_x : int = middlex - ((middlex - self.config.output_width // 2) * self.x_scaling_factor)
-            corrected_y : int = middley + (middley * self.y_scaling_factor)
+                corrected_x : float = middlex - ((middlex - self.config.output_width // 2) * self.x_scaling_factor)
+            corrected_y : float = middley + (middley * self.y_scaling_factor)
 
             return int(corrected_x), int(corrected_y)
 
 
-    def _correct_position_grid(self, middlex : int, middley : int) -> tuple[int, int]:
+    def _correct_position_grid_linear(self, middlex : int, middley : int) -> tuple[int, int]:
         """
         Corrects ball position using an offset for a grid cell.
         """
         cell : tuple[int, int] = self._get_cell(middlex, middley)
-        grid : dict = self.saved_grid.get(str(self.grid_size), {})
+        grid : dict = self.saved_grid_linear.get(str(self.grid_size), {})
         
         # Convert cell to string format if that's how it's stored
         cell_key = str(cell) if any(isinstance(k, str) for k in grid.keys()) else cell
@@ -98,6 +104,26 @@ class OffsetManager:
             corrected_y : int = middley
         
         return int(corrected_x), int(corrected_y)
+    
+
+    def _correct_position_grid_scaling(self, middlex : int, middley : int) -> tuple[int, int]:
+        """
+        Corrects ball position using a scaling offset for a grid cell.
+        """
+        cell : tuple[int, int] = self._get_cell(middlex, middley)
+        grid : dict = self.saved_grid_scaling.get(str(self.grid_size), {})
+
+        cell_key = str(cell) if any(isinstance(k, str) for k in grid.keys()) else cell
+
+        if cell_key in grid:
+            offsets = grid[cell_key]
+            corrected_x : float = middlex + (middlex * offsets['x'])
+            corrected_y : float = middley + (middley * offsets['y'])
+        else:
+            corrected_x : int = middlex
+            corrected_y : int = middley
+
+        return int(corrected_x), int(corrected_y)
 
 
     def _handle_grid(self, frame : cv2.Mat) -> cv2.Mat:
@@ -105,26 +131,35 @@ class OffsetManager:
         This function handles the grid.
         It detects which cell is selected, and works with the calibration tool to track offsets per cell.
         """
-        cv2.setMouseCallback("Detection", self._select_cell)
+        if self.calibration_mode == 0:
+            grid = self.saved_grid_linear
+            cv2.setMouseCallback("Detection", self._select_cell_linear)
+        elif self.calibration_mode == 1:
+            grid = self.saved_grid_scaling
+            cv2.setMouseCallback("Detection", self._select_cell_scaling)
         frame : cv2.Mat = self._draw_grid(frame)
         frame : cv2.Mat = self._highlight_edited_cells(frame)
 
         if self.selected_cell is not None:
             top_left, bottom_right = self._get_cell_boundaries(self.selected_cell)
             frame : cv2.Mat = cv2.rectangle(frame, top_left, bottom_right, (255, 255, 0), 2)
-            if f"{self.grid_size}" in self.saved_grid and self.selected_cell in self.saved_grid[f"{self.grid_size}"]:
-                self.selected_cell_values = (self.saved_grid[f"{self.grid_size}"][self.selected_cell]['x'], self.saved_grid[f"{self.grid_size}"][self.selected_cell]['y'])
+            if f"{self.grid_size}" in grid and self.selected_cell in grid[f"{self.grid_size}"]:
+                value = (grid[f"{self.grid_size}"][self.selected_cell]['x'], grid[f"{self.grid_size}"][self.selected_cell]['y'])
             else:
-                self.selected_cell_values = (0,0)
-
+                value = (0,0)
         
         # Save the current state of the grid
-        if f"{self.grid_size}" not in self.saved_grid:
-            self.saved_grid[f"{self.grid_size}"] = {}
-        self.saved_grid[f"{self.grid_size}"][self.selected_cell] = {
-            'x': self.selected_cell_values[0],
-            'y': self.selected_cell_values[1]
+        if f"{self.grid_size}" not in grid:
+           grid[f"{self.grid_size}"] = {}
+        grid[f"{self.grid_size}"][self.selected_cell] = {
+            'x': value[0],
+            'y': value[1]
         }
+
+        if self.calibration_mode == 0:
+            self.selected_cell_values_linear = value
+        elif self.calibration_mode == 1:
+            self.selected_cell_values_scaling = value
 
         return frame
     
@@ -134,7 +169,10 @@ class OffsetManager:
         This helper function highlights the cells on the grid that have offsets set.
         This makes it easier to tell what cells still need to be calibrated.
         """
-        current_grid : dict = self.saved_grid.get(str(self.grid_size), {})
+        if self.calibration_mode == 0:
+            current_grid : dict = self.saved_grid_linear.get(str(self.grid_size), {})
+        elif self.calibration_mode == 1:
+            current_grid : dict = self.saved_grid_scaling.get(str(self.grid_size), {})
         
         for cell, offsets in current_grid.items():
             if offsets["x"] != 0 or offsets["y"] != 0:
@@ -153,7 +191,7 @@ class OffsetManager:
         return top_left, bottom_right
 
 
-    def _select_cell(self, event, x, y, _, param) -> None:
+    def _select_cell_linear(self, event, x, y, _, param) -> None:
         """
         Handles the current cell selected, loads the offset if one has been set.
         """
@@ -164,20 +202,46 @@ class OffsetManager:
                 self.selected_cell = new_cell
                 
                 # Get current grid size
-                current_grid : dict = self.saved_grid.get(self.grid_size, {})
+                current_grid : dict = self.saved_grid_linear.get(self.grid_size, {})
                 
                 # Load offsets for this cell if they exist
                 if new_cell in current_grid:
-                    self.selected_cell_values = (
+                    self.selected_cell_values_linear = (
                         current_grid[new_cell]['x'],
                         current_grid[new_cell]['y']
                     )
                 else:
-                    self.selected_cell_values = (0, 0)
+                    self.selected_cell_values_linear = (0, 0)
                 
                 # Update GUI if available
                 if hasattr(self, 'gui') and self.gui:
-                    self.gui.update_cell_info()
+                    self.gui.update_cell_info_linear()
+
+    def _select_cell_scaling(self, event, x, y, _, param) -> None:
+        """
+        Handles the current cell selected, loads the offset if one has been set.
+        """
+        if event == cv2.EVENT_LBUTTONDOWN:
+            new_cell : tuple[int, int] = self._get_cell(x, y)
+            logger.info(f"Selected cell: {new_cell}")
+            if new_cell != self.selected_cell:
+                self.selected_cell = new_cell
+                
+                # Get current grid size
+                current_grid : dict = self.saved_grid_scaling.get(self.grid_size, {})
+                
+                # Load offsets for this cell if they exist
+                if new_cell in current_grid:
+                    self.selected_cell_values_scaling = (
+                        current_grid[new_cell]['x'],
+                        current_grid[new_cell]['y']
+                    )
+                else:
+                    self.selected_cell_values_scaling = (0.0, 0.0)
+                
+                # Update GUI if available
+                if hasattr(self, 'gui') and self.gui:
+                    self.gui.update_cell_info_scaling()
 
 
     def _get_cell(self, x : int, y : int) -> tuple[int, int]:
@@ -255,28 +319,42 @@ class OffsetManager:
         Saves all of the parameters for the calibration settings to a json file.
         """
 
-        serializable_grid : dict = {
+        serializable_grid_linear : dict = {
             str(grid_size): {
                 str(cell): offsets 
                 for cell, offsets in cells.items()
                 if offsets['x'] != 0 or offsets['y'] != 0  # Only include non-zero offsets
             }
-            for grid_size, cells in self.saved_grid.items()
+            for grid_size, cells in self.saved_grid_linear.items()
+            if cells
+        }
+
+        serializable_grid_scaling : dict = {
+            str(grid_size): {
+                str(cell): offsets 
+                for cell, offsets in cells.items()
+                if offsets['x'] != 0 or offsets['y'] != 0  # Only include non-zero offsets
+            }
+            for grid_size, cells in self.saved_grid_scaling.items()
             if cells
         }
 
         data : dict = {
             0: {"grid": {
                 "grid_size": self.grid_size,
-                "saved_grid": serializable_grid,
+                "saved_grid_linear": serializable_grid_linear,
             }},
-            1: {"matrix_correction_factor": self.matrix_correction_factor},
-            2: {"scaling": {
+            1: {"grid": {
+                "grid_size": self.grid_size,
+                "saved_grid_scaling": serializable_grid_scaling,
+            }},
+            2: {"matrix_correction_factor": self.matrix_correction_factor},
+            3: {"scaling": {
                 "x_scaling_factor" : self.x_scaling_factor,
                 "y_scaling_factor" : self.y_scaling_factor,
                 "mirror_scaling": self.mirror_scaling,
             }},
-            3: {"linear": {
+            4: {"linear": {
                 "x_linear": self.x_linear,
                 "y_linear": self.y_linear,
                 "mirror_linear": self.mirror_linear,
@@ -309,17 +387,19 @@ class OffsetManager:
                 return
 
             # Load grid parameters
-            grid_data : dict = data["0"]["grid"]
-            self.grid_size : dict = grid_data["grid_size"]
+            grid_data_linear : dict = data["0"]["grid"]
+            grid_data_scaling : dict = data["1"]["grid"]
+            self.grid_size : dict = grid_data_linear["grid_size"]
             
-            # Initialize saved_grid
-            self.saved_grid : dict = {}
+            # Initialize saved grids
+            self.saved_grid_linear : dict = {}
+            self.saved_grid_scaling : dict = {}
             
-            if "saved_grid" in grid_data:
-                for grid_size_str, cells in grid_data["saved_grid"].items():
+            if "saved_grid_linear" in grid_data_linear:
+                for grid_size_str, cells in grid_data_linear["saved_grid_linear"].items():
                     try:
                         grid_size = grid_size_str
-                        self.saved_grid[grid_size] = {}
+                        self.saved_grid_linear[grid_size] = {}
                         
                         for cell_str, offsets in cells.items():
                             # Parse cell coordinates from string "(x,y)"
@@ -328,7 +408,7 @@ class OffsetManager:
                             cell = (x, y)
                             
                             # Store the offsets
-                            self.saved_grid[grid_size][cell] = {
+                            self.saved_grid_linear[grid_size][cell] = {
                                 'x': int(offsets['x']),
                                 'y': int(offsets['y'])
                             }
@@ -336,14 +416,36 @@ class OffsetManager:
                     except Exception as e:
                         logger.error(f"Error loading grid {grid_size_str}: {e}")
                         continue
+
+            if "saved_grid_scaling" in grid_data_scaling:
+                for grid_size_str, cells in grid_data_scaling["saved_grid_scaling"].items():
+                    try:
+                        grid_size = grid_size_str
+                        self.saved_grid_scaling[grid_size] = {}
+                        
+                        for cell_str, offsets in cells.items():
+                            # Parse cell coordinates from string "(x,y)"
+                            cell_str = cell_str.strip("()")
+                            x, y = map(int, cell_str.split(','))
+                            cell = (x, y)
+                            
+                            # Store the offsets
+                            self.saved_grid_scaling[grid_size][cell] = {
+                                'x': offsets['x'],
+                                'y': offsets['y']
+                            }
+                            logger.debug(f"Loaded cell {cell} with offsets {offsets}")
+                    except Exception as e:
+                        logger.error(f"Error loading grid {grid_size_str}: {e}")
+                        continue
            
-            self.matrix_correction_factor = data["1"]["matrix_correction_factor"]
-            self.x_scaling_factor = data["2"]["scaling"]["x_scaling_factor"]
-            self.y_scaling_factor = data["2"]["scaling"]["y_scaling_factor"]
-            self.mirror_scaling = data["2"]["scaling"]["mirror_scaling"]
-            self.x_linear = data["3"]["linear"]["x_linear"]
-            self.y_linear = data["3"]["linear"]["y_linear"]
-            self.mirror_linear = data["3"]["linear"]["mirror_linear"]
+            self.matrix_correction_factor = data["2"]["matrix_correction_factor"]
+            self.x_scaling_factor = data["3"]["scaling"]["x_scaling_factor"]
+            self.y_scaling_factor = data["3"]["scaling"]["y_scaling_factor"]
+            self.mirror_scaling = data["3"]["scaling"]["mirror_scaling"]
+            self.x_linear = data["4"]["linear"]["x_linear"]
+            self.y_linear = data["4"]["linear"]["y_linear"]
+            self.mirror_linear = data["4"]["linear"]["mirror_linear"]
             
             logger.info("Successfully loaded all parameters.")
         

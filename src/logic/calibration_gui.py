@@ -27,6 +27,11 @@ class CalibrationInterface(QWidget):
         self.cell_y_offset_slider = None
         self.cell_y_offset_label = None
 
+        self.cell_x_scaling_slider = None
+        self.cell_x_scaling_label = None
+        self.cell_y_scaling_slider = None
+        self.cell_y_scaling_label = None
+
         self.x_scaling_slider = None
         self.x_scaling_label = None
         self.y_scaling_slider = None
@@ -47,8 +52,12 @@ class CalibrationInterface(QWidget):
         """
         Setup the buttons to switch to the different modes, and the save button.
         """
-        grid_mode_button = QPushButton("Grid Mode")
-        grid_mode_button.clicked.connect(self.grid_mode)
+        grid_mode_button = QPushButton("Grid Mode (Linear)")
+        grid_mode_button.clicked.connect(self.grid_mode_linear)
+        self.layout.addWidget(grid_mode_button)
+
+        grid_mode_button = QPushButton("Grid Mode (Scaling)")
+        grid_mode_button.clicked.connect(self.grid_mode_scaling)
         self.layout.addWidget(grid_mode_button)
 
         matrix_mode_button = QPushButton("Matrix Mode")
@@ -72,14 +81,14 @@ class CalibrationInterface(QWidget):
         self.setLayout(self.layout)
     
 
-    def grid_mode(self):
+    def grid_mode_linear(self):
         """
-        The main function for the grid mode.
+        The main function for the grid mode (with linear offset).
         This draws a grid to the frame, where the user can then select a cell.
         Each cell can be assigned its own offset.
         """
         self.destroy_all()
-        logger.info("Grid Mode enabled.")
+        logger.info("Grid Mode (linear) enabled.")
         self.offset_manager.calibration_mode = 0
 
         self.cell_label = QLabel(f"Selected Cell: {self.offset_manager.selected_cell}")
@@ -97,12 +106,12 @@ class CalibrationInterface(QWidget):
             if self.offset_manager.selected_cell is not None:
                 self.cell_x_offset_slider = QSlider(Qt.Orientation.Horizontal)
                 self.cell_x_offset_slider.setRange(-50, 50)
-                self.cell_x_offset_slider.setValue(self.offset_manager.selected_cell_values[0])
+                self.cell_x_offset_slider.setValue(self.offset_manager.selected_cell_values_linear[0])
                 self.cell_x_offset_label = QLabel(f"X Offset: {self.cell_x_offset_slider.value()}")
 
                 self.cell_y_offset_slider = QSlider(Qt.Orientation.Horizontal)
                 self.cell_y_offset_slider.setRange(-50, 50)
-                self.cell_y_offset_slider.setValue(self.offset_manager.selected_cell_values[1])
+                self.cell_y_offset_slider.setValue(self.offset_manager.selected_cell_values_linear[1])
                 self.cell_y_offset_label = QLabel(f"Y Offset: {self.cell_y_offset_slider.value()}")
 
                 self.cell_x_offset_slider.valueChanged.connect(self._update_grid_x_offset)
@@ -117,8 +126,53 @@ class CalibrationInterface(QWidget):
             self.layout.addWidget(self.cell_y_offset_label)
             self.layout.addWidget(self.cell_y_offset_slider)
 
+    def grid_mode_scaling(self):
+        """
+        The main function for the grid mode (with scaling offset).
+        This draws a grid to the frame, where the user can then select a cell.
+        Each cell can be assigned its own offset.
+        """
+        self.destroy_all()
+        logger.info("Grid Mode (scaling) enabled.")
+        self.offset_manager.calibration_mode = 1
 
-    def update_cell_info(self):
+        self.cell_label = QLabel(f"Selected Cell: {self.offset_manager.selected_cell}")
+        self.layout.addWidget(self.cell_label)
+
+        if not self.grid_slider:
+            self.grid_slider = QSlider(Qt.Orientation.Horizontal)
+            self.grid_slider.setRange(50, 250)
+            self.grid_slider.setValue(self.offset_manager.grid_size)
+
+            self.grid_label = QLabel(f"Grid Size: {self.grid_slider.value()}")
+
+            self.grid_slider.valueChanged.connect(self._update_grid_size)
+
+            if self.offset_manager.selected_cell is not None:
+                self.cell_x_scaling_slider = QSlider(Qt.Orientation.Horizontal)
+                self.cell_x_scaling_slider.setRange(-200, 200)
+                self.cell_x_scaling_slider.setValue(int(self.offset_manager.selected_cell_values_scaling[0] * 1000))
+                self.cell_x_scaling_label = QLabel(f"X Scaling Factor: {self.cell_x_scaling_slider.value() / 1000}")
+
+                self.cell_y_scaling_slider = QSlider(Qt.Orientation.Horizontal)
+                self.cell_y_scaling_slider.setRange(-200, 200)
+                self.cell_y_scaling_slider.setValue(int(self.offset_manager.selected_cell_values_scaling[1] * 1000))
+                self.cell_y_scaling_label = QLabel(f"Y Scaling Factor: {self.cell_y_scaling_slider.value() / 1000}")
+
+                self.cell_x_scaling_slider.valueChanged.connect(self._update_grid_x_scaling)
+                self.cell_y_scaling_slider.valueChanged.connect(self._update_grid_y_scaling)
+            
+
+
+            self.layout.addWidget(self.grid_label)
+            self.layout.addWidget(self.grid_slider)
+            self.layout.addWidget(self.cell_x_scaling_label)
+            self.layout.addWidget(self.cell_x_scaling_slider)
+            self.layout.addWidget(self.cell_y_scaling_label)
+            self.layout.addWidget(self.cell_y_scaling_slider)
+
+
+    def update_cell_info_linear(self):
         """
         Update the cell label and offset sliders when a new cell is selected.
         """
@@ -138,14 +192,14 @@ class CalibrationInterface(QWidget):
         y_offset = 0
         
         # Check if offsets exist in saved grid
-        if (grid_size in self.offset_manager.saved_grid and 
-            cell in self.offset_manager.saved_grid[grid_size]):
-            saved_values = self.offset_manager.saved_grid[grid_size][cell]
+        if (grid_size in self.offset_manager.saved_grid_linear and 
+            cell in self.offset_manager.saved_grid_linear[grid_size]):
+            saved_values = self.offset_manager.saved_grid_linear[grid_size][cell]
             x_offset = saved_values.get('x', 0)
             y_offset = saved_values.get('y', 0)
         
         # Update the offset manager's current values
-        self.offset_manager.selected_cell_values = (x_offset, y_offset)
+        self.offset_manager.selected_cell_values_linear = (x_offset, y_offset)
         
         # Update sliders if they exist
         if self.cell_x_offset_slider:
@@ -158,6 +212,47 @@ class CalibrationInterface(QWidget):
             self.cell_x_offset_label.setText(f"X Offset: {x_offset}")
         if self.cell_y_offset_label:
             self.cell_y_offset_label.setText(f"Y Offset: {y_offset}")
+
+    def update_cell_info_scaling(self):
+        """
+        Update the cell label and offset sliders when a new cell is selected.
+        """
+        if not hasattr(self.offset_manager, 'selected_cell'):
+            return
+
+        # Update cell label
+        if self.cell_label:
+            self.cell_label.setText(f"Selected Cell: {self.offset_manager.selected_cell}")
+
+        # Get the saved offsets for this cell and grid size
+        grid_size = str(self.offset_manager.grid_size)
+        cell = self.offset_manager.selected_cell
+        
+        # Default to (0, 0) if no offsets exist
+        x_offset = 0.0
+        y_offset = 0.0
+        
+        # Check if offsets exist in saved grid
+        if (grid_size in self.offset_manager.saved_grid_scaling and 
+            cell in self.offset_manager.saved_grid_scaling[grid_size]):
+            saved_values = self.offset_manager.saved_grid_scaling[grid_size][cell]
+            x_offset = saved_values.get('x', 0.0)
+            y_offset = saved_values.get('y', 0.0)
+        
+        # Update the offset manager's current values
+        self.offset_manager.selected_cell_values_scaling = (x_offset, y_offset)
+        
+        # Update sliders if they exist
+        if self.cell_x_scaling_slider:
+            self.cell_x_scaling_slider.setValue(int(x_offset * 1000))
+        if self.cell_y_scaling_slider:
+            self.cell_y_scaling_slider.setValue(int(y_offset * 1000))
+        
+        # Update labels if they exist
+        if self.cell_x_scaling_label:
+            self.cell_x_scaling_label.setText(f"X Offset: {x_offset}")
+        if self.cell_y_scaling_label:
+            self.cell_y_scaling_label.setText(f"Y Offset: {y_offset}")
 
 
     def _update_grid_size(self, value):
@@ -176,22 +271,22 @@ class CalibrationInterface(QWidget):
         if self.cell_x_offset_label:
             self.cell_x_offset_label.setText(f"X Offset: {value}")
         
-        self.offset_manager.selected_cell_values = (value, self.offset_manager.selected_cell_values[1])
+        self.offset_manager.selected_cell_values_linear = (value, self.offset_manager.selected_cell_values_linear[1])
         grid_size = str(self.offset_manager.grid_size)
         
         # Initialize grid size entry if needed
-        if grid_size not in self.offset_manager.saved_grid:
-            self.offset_manager.saved_grid[grid_size] = {}
+        if grid_size not in self.offset_manager.saved_grid_linear:
+            self.offset_manager.saved_grid_linear[grid_size] = {}
 
         # Only store if not default (0,0) value
-        if value != 0 or self.offset_manager.selected_cell_values[1] != 0:
-            self.offset_manager.saved_grid[grid_size][self.offset_manager.selected_cell] = {
+        if value != 0 or self.offset_manager.selected_cell_values_linear[1] != 0:
+            self.offset_manager.saved_grid_linear[grid_size][self.offset_manager.selected_cell] = {
                 'x': value,
-                'y': self.offset_manager.selected_cell_values[1]
+                'y': self.offset_manager.selected_cell_values_linear[1]
             }
         else:
-            if self.offset_manager.selected_cell in self.offset_manager.saved_grid[grid_size]:
-                del self.offset_manager.saved_grid[grid_size][self.offset_manager.selected_cell]
+            if self.offset_manager.selected_cell in self.offset_manager.saved_grid_linear[grid_size]:
+                del self.offset_manager.saved_grid_linear[grid_size][self.offset_manager.selected_cell]
 
 
     def _update_grid_y_offset(self, value):
@@ -201,22 +296,62 @@ class CalibrationInterface(QWidget):
         if self.cell_y_offset_label:
             self.cell_y_offset_label.setText(f"Y Offset: {value}")
         
-        self.offset_manager.selected_cell_values = (self.offset_manager.selected_cell_values[0], value)
+        self.offset_manager.selected_cell_values_linear = (self.offset_manager.selected_cell_values_linear[0], value)
         grid_size = str(self.offset_manager.grid_size)
         
         # Initialize grid size entry if needed
-        if grid_size not in self.offset_manager.saved_grid:
-            self.offset_manager.saved_grid[grid_size] = {}
+        if grid_size not in self.offset_manager.saved_grid_linear:
+            self.offset_manager.saved_grid_linear[grid_size] = {}
         
         # Only store if not default (0,0) value
-        if self.offset_manager.selected_cell_values[0] != 0 or value != 0:
-            self.offset_manager.saved_grid[grid_size][self.offset_manager.selected_cell] = {
-                'x': self.offset_manager.selected_cell_values[0],
+        if self.offset_manager.selected_cell_values_linear[0] != 0 or value != 0:
+            self.offset_manager.saved_grid_linear[grid_size][self.offset_manager.selected_cell] = {
+                'x': self.offset_manager.selected_cell_values_linear[0],
                 'y': value
             }
         else:
-            if self.offset_manager.selected_cell in self.offset_manager.saved_grid[grid_size]:
-                del self.offset_manager.saved_grid[grid_size][self.offset_manager.selected_cell]
+            if self.offset_manager.selected_cell in self.offset_manager.saved_grid_linear[grid_size]:
+                del self.offset_manager.saved_grid_linear[grid_size][self.offset_manager.selected_cell]
+
+
+    def _update_grid_x_scaling(self, value):
+        value = value / 1000
+        if self.cell_x_scaling_label:
+            self.cell_x_scaling_label.setText(f"X Scaling Factor: {value}")
+
+        self.offset_manager.selected_cell_values_scaling = (value, self.offset_manager.selected_cell_values_scaling[1])
+        grid_size = str(self.offset_manager.grid_size)
+
+        if grid_size not in self.offset_manager.saved_grid_scaling:
+            self.offset_manager.saved_grid_scaling[grid_size] = {}
+        if self.offset_manager.selected_cell_values_scaling[1] != 0.0 or value != 0.0:
+            self.offset_manager.saved_grid_scaling[grid_size][self.offset_manager.selected_cell] = {
+                'x' : value,
+                'y' : self.offset_manager.selected_cell_values_scaling[1]
+            }
+        else:
+            if self.offset_manager.selected_cell in self.offset_manager.saved_grid_scaling[grid_size]:
+                del self.offset_manager.saved_grid_scaling[grid_size][self.offset_manager.selected_cell]
+
+
+    def _update_grid_y_scaling(self, value):
+        value = value / 1000
+        if self.cell_y_scaling_label:
+            self.cell_y_scaling_label.setText(f"Y Scaling Factor: {value}")
+
+        self.offset_manager.selected_cell_values_scaling = (self.offset_manager.selected_cell_values_scaling[0], value)
+        grid_size = str(self.offset_manager.grid_size)
+
+        if grid_size not in self.offset_manager.saved_grid_scaling:
+            self.offset_manager.saved_grid_scaling[grid_size] = {}
+        if self.offset_manager.selected_cell_values_scaling[0] != 0.0 or value != 0.0:
+            self.offset_manager.saved_grid_scaling[grid_size][self.offset_manager.selected_cell] = {
+                'x' : self.offset_manager.selected_cell_values_scaling[0],
+                'y' : value
+            }
+        else:
+            if self.offset_manager.selected_cell in self.offset_manager.saved_grid_scaling[grid_size]:
+                del self.offset_manager.saved_grid_scaling[grid_size][self.offset_manager.selected_cell]
 
 
     def matrix_mode(self):
@@ -226,7 +361,7 @@ class CalibrationInterface(QWidget):
         """
         self.destroy_all()
         logger.info("Matrix Mode enabled.")
-        self.offset_manager.calibration_mode = 1
+        self.offset_manager.calibration_mode = 2
         if not self.matrix_correction_slider:
             self.matrix_correction_slider = QSlider(Qt.Orientation.Horizontal)
             self.matrix_correction_slider.setRange(-1000, 1000)
@@ -259,7 +394,7 @@ class CalibrationInterface(QWidget):
         """
         self.destroy_all()
         logger.info("Scaling Mode enabled.")
-        self.offset_manager.calibration_mode = 2
+        self.offset_manager.calibration_mode = 3
         if not self.x_scaling_slider and not self.y_scaling_slider:
             self.scaling_mirror = QCheckBox("Mirror around center")
             self.scaling_mirror.stateChanged.connect(self._update_scaling_mirror)
@@ -322,7 +457,7 @@ class CalibrationInterface(QWidget):
         """
         self.destroy_all()
         logger.info("Linear Mode enabled.")
-        self.offset_manager.calibration_mode = 3
+        self.offset_manager.calibration_mode = 4
         if not self.x_linear_slider and not self.y_linear_slider:
             self.linear_mirror = QCheckBox("Mirror around center")
             self.linear_mirror.stateChanged.connect(self._update_linear_mirror)
@@ -402,7 +537,20 @@ class CalibrationInterface(QWidget):
         if self.cell_y_offset_label:
             self.layout.removeWidget(self.cell_y_offset_label)
             self.cell_y_offset_label.deleteLater()
-        
+
+        if self.cell_x_scaling_slider:
+            self.layout.removeWidget(self.cell_x_scaling_slider)
+            self.cell_x_scaling_slider.deleteLater()
+        if self.cell_y_scaling_slider:
+            self.layout.removeWidget(self.cell_y_scaling_slider)
+            self.cell_y_scaling_slider.deleteLater()
+        if self.cell_x_scaling_label:
+            self.layout.removeWidget(self.cell_x_scaling_label)
+            self.cell_x_scaling_label.deleteLater()
+        if self.cell_y_scaling_label:
+            self.layout.removeWidget(self.cell_y_scaling_label)
+            self.cell_y_scaling_label.deleteLater()
+            
         if self.x_scaling_slider:
             self.layout.removeWidget(self.x_scaling_slider)
             self.x_scaling_slider.deleteLater()
@@ -450,6 +598,10 @@ class CalibrationInterface(QWidget):
         self.cell_x_offset_label = None
         self.cell_y_offset_slider = None
         self.cell_y_offset_label = None
+        self.cell_x_scaling_slider = None
+        self.cell_x_scaling_label = None
+        self.cell_y_scaling_slider = None
+        self.cell_y_scaling_label = None
         self.x_scaling_slider = None
         self.x_scaling_label = None
         self.y_scaling_slider = None
