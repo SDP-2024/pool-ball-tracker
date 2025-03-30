@@ -134,7 +134,6 @@ class AutoEncoder:
         if len(self.detection_buffer) >= self.config.anomaly_buffer_size:
             self.detection_buffer : np.ndarray = np.delete(self.detection_buffer, 0) 
         self.detection_buffer : np.ndarray = np.append(self.detection_buffer, mse)
-
         mean : float = np.mean(self.detection_buffer)
         if abs(mean - self.config.anomaly_threshold) <= self.config.anomaly_threshold * 0.05:
             logger.warning(f"Mean is within 5% of the threshold: {mean}")
