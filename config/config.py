@@ -40,7 +40,8 @@ class ConfigManager:
             "output_width": {"type": "integer", "min": 640, "max": 4096, "default": 1200},
             "output_height": {"type": "integer", "min": 480, "max": 2160,"default": 600},
             "hole_threshold": {"type": "integer", "min": 0, "max": 100, "default": 30},
-            "calibration_mode": {"type": "integer", "min": -1, "max": 3, "default": -1}
+            "calibration_mode": {"type": "integer", "min": -1, "max": 3, "default": -1},
+            "ball_area" : {"type": "integer", "min": 1000, "max": 10000, "default": 3000}
             }
         # Define member variable for all config options
         for key in self.schema.keys():
