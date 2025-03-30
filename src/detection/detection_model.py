@@ -93,19 +93,20 @@ class DetectionModel:
 
         # Check the number of each class to ensure they remain within the limits
         for result, classname in all_results:
-            if classname == "white" and counts["white"] < 1:
+            _, _, xmin, ymin, xmax, ymax = self._get_result_info(result)
+            if classname == "white" and counts["white"] < 1 and self._is_likely_ball(xmin, xmax, ymin, ymax):
                 counts["white"] += 1
                 filtered_results.append(result)
                 self.total_balls += 1
-            elif classname == "black" and counts["black"] < 1:
+            elif classname == "black" and counts["black"] < 1 and self._is_likely_ball(xmin, xmax, ymin, ymax):
                 counts["black"] += 1
                 filtered_results.append(result)
                 self.total_balls += 1
-            elif classname == "red" and counts["red"] < 7:
+            elif classname == "red" and counts["red"] < 7 and self._is_likely_ball(xmin, xmax, ymin, ymax):
                 counts["red"] += 1
                 filtered_results.append(result)
                 self.total_balls += 1
-            elif classname == "yellow" and counts["yellow"] < 7:
+            elif classname == "yellow" and counts["yellow"] < 7 and self._is_likely_ball(xmin, xmax, ymin, ymax):
                 counts["yellow"] += 1
                 filtered_results.append(result)
                 self.total_balls += 1
@@ -118,6 +119,14 @@ class DetectionModel:
                 filtered_results.append(result)
 
         return filtered_results
+    
+
+    def _is_likely_ball(self, xmin : int, xmax : int, ymin : int, ymax : int) -> bool:
+        """
+        This helper function checks if the area of the bounding box is within what a ball should be
+        """
+        area = ((xmax - xmin) * (ymax - ymin))
+        return (area <= self.config.ball_area and area >= (self.config.ball_area/3))
     
 
     def draw(self, frame, filtered_results) -> None:
