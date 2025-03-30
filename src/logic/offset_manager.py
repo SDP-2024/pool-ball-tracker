@@ -3,6 +3,7 @@ import numpy as np
 import logging
 import os
 import json
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,10 @@ class OffsetManager:
         self.calibration_mode = self.config.calibration_mode
 
         self.grid_size : int = 100
+        self.right_gantry_x : int = 1100
+        self.left_gantry_x : int = 100
+        self.top_gantry_y : int = 516
+        self.bottom_gantry_y : int = 84 
         self.selected_cell : tuple[int, int] = (0,0)
         self.selected_cell_values_linear : tuple[int, int] = (0,0)
         self.saved_grid_linear : dict = {} # Saved grids indexed by the grid size
@@ -47,6 +52,7 @@ class OffsetManager:
         Scaling mode: Adjusts the offset based on the x and y coordinates. Can be mirrored around the camera.
         Linear mode: A constant offset on the x and y regardless of the position on the table.
         """
+
         if self.calibration_mode == 0:
             if self.calibrating:
                 frame = self._handle_grid(frame)
@@ -63,7 +69,27 @@ class OffsetManager:
             corrected_middlex, corrected_middley = self._correct_position_linear(middlex, middley)
         else:
             corrected_middlex, corrected_middley = middlex, middley
-        return int(corrected_middlex), int(corrected_middley)
+
+        # Handle boundary positions
+        if middlex > 1100:
+            corrected_middlex = self.config.output_width
+        elif middlex <= 100:
+            corrected_middlex = 0
+        else:
+            corrected_middlex = (middlex - 100) * (1.2)
+            if corrected_middlex > (self.config.output_width/2):
+                corrected_middlex = corrected_middlex - (0.015 * corrected_middlex)
+
+        if middley > 511:
+            corrected_middley = self.config.output_height
+        elif middley <= 89:
+            corrected_middley = 0
+        else:
+            corrected_middley = (middley - 89) * (1.388888)
+            if corrected_middley > (self.config.output_height/2):
+                corrected_middley = corrected_middley - (0.015 * corrected_middley)
+    
+        return int(round(corrected_middlex)), int(round(corrected_middley))
     
 
     def _correct_position_scaling(self, middlex : int, middley : int) -> tuple[int, int]:
@@ -138,6 +164,7 @@ class OffsetManager:
             grid = self.saved_grid_scaling
             cv2.setMouseCallback("Detection", self._select_cell_scaling)
         frame : cv2.Mat = self._draw_grid(frame)
+        #frame : cv2.Mat = self._draw_gantry(frame)
         frame : cv2.Mat = self._highlight_edited_cells(frame)
 
         if self.selected_cell is not None:
@@ -265,6 +292,12 @@ class OffsetManager:
 
         return frame
     
+    def _draw_gantry(self, frame : cv2.Mat) -> cv2.Mat:
+        """
+        Draws the gantry bounding box
+        """
+        cv2.rectangle(frame, (self.left_gantry_x, self.top_gantry_y), (self.config.output_width - self.right_gantry_x, self.config.output_height - self.bottom_gantry_y), (0,0,0), 1)
+        return frame
 
     def _correct_position_matrix(self, middlex : int, middley : int) -> tuple[int, int]:
         """
