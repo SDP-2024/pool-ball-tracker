@@ -11,10 +11,14 @@ class Network:
     It sends the ball positions, obstruction detected, and end of turn messages to the server.
     It will track failed messages and attempt to reconnect if necessary.
     """
-    def __init__(self, config):
+    def __init__(self, config : dict) -> None:
         self.config = config
         self.sio = socketio.Client()
         self.positions_requested : bool = False
+        self.finished_move : bool = False
+        self.gantry_moving : bool = False
+        self.finished_move_counter : int = 0
+        self.finished_hit : bool = False
 
         @self.sio.event
         def connect() -> None:
@@ -24,6 +28,8 @@ class Network:
             self.sio.emit("join", "endOfTurn")
             self.sio.emit("join", "requestPositions")
             self.sio.emit("join", "correctedPositions")
+            self.sio.emit("join", "finishedMove")
+            self.sio.emit("join", "finishedHit")
 
 
         @self.sio.event
@@ -35,6 +41,14 @@ class Network:
         @self.sio.on("requestPositions")
         def handle_request_positions(data) -> None:
             self._handle_request_positions(data)
+
+        @self.sio.on("finishedMove")
+        def handle_finished_move(data) -> None:
+            self._handle_finished_move(data)
+
+        @self.sio.on("finishedHit")
+        def handle_finished_hit(data) -> None:
+            self._handle_finished_hit(data)
 
 
     def _reconnect(self) -> None:
@@ -58,6 +72,30 @@ class Network:
 
     def _handle_request_positions(self, data) -> None:
         self.positions_requested = True
+
+    def _handle_finished_move(self, data) -> None:
+        """
+        This handles the move commands. "finishedMove" is emitted when the gantry completes an instruction.
+        One "finishedMove" signal means that the gantry has moved to the ball. If finishedMove and finishedHit then the gantry is moving back to origin.
+        This signals to keep track of the balls that are in the origin position.
+        Two "finishedMove" signals mean the gantry has moved to the ball and back to origin.
+        This is required for disabling the obstruction detection during movement.
+        """
+        self.finished_move_counter += 1
+        if self.finished_hit:
+            self.finished_move_counter = 0
+            self.gantry_moving = True
+        elif self.finished_move_counter == 1 and self.finished_hit:
+            self.finished_move = True
+            self.finished_move_counter = 0
+
+
+    def _handle_finished_hit(self, data) -> None:
+        """
+        This is used for tracking when the hitting mechanism has hit the ball.
+        This is for tracking the origin point for balls that may be hidden by the hitting mechanism
+        """
+        self.finished_hit = True
 
 
     def send_balls(self, balls : dict) -> None:

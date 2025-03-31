@@ -115,7 +115,7 @@ class DetectionModel:
                 if self._is_likely_hole(result):
                     counts["hole"] += 1
                     filtered_results.append(result)
-            elif classname == "arm":
+            elif classname == "arm" and counts["arm"] < 3 and self._is_likely_arm(xmin, xmax, ymin, ymax):
                 filtered_results.append(result)
 
         return filtered_results
@@ -127,6 +127,13 @@ class DetectionModel:
         """
         area = ((xmax - xmin) * (ymax - ymin))
         return (area <= self.config.ball_area and area >= (self.config.ball_area/3))
+    
+    def _is_likely_arm(self, xmin : int, xmax : int, ymin : int, ymax : int) -> bool:
+        """
+        This helper function checks if the area of the bounding box is big enough to be classed as the arm
+        """
+        area = ((xmax-xmin) * (ymax - ymin))
+        return (area > 6000)
     
 
     def draw(self, frame, filtered_results) -> None:
