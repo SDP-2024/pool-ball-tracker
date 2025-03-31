@@ -1,6 +1,6 @@
 import cv2
 
-def get_top_down_view(frame, hom_matrix, output=(1200,600)):
+def get_top_down_view(frame : cv2.Mat, hom_matrix : cv2.Mat, output=(1200,600)) -> cv2.Mat:
     """
     Gets the top down view of the frame
 
@@ -13,7 +13,7 @@ def get_top_down_view(frame, hom_matrix, output=(1200,600)):
         numpy.ndarray: The warped frame
     """
 
-    top_down_view = cv2.warpPerspective(frame, hom_matrix, output, borderMode=cv2.BORDER_REPLICATE)
-    top_down_view = cv2.flip(top_down_view, 0)
+    top_down_view : cv2.Mat = cv2.warpPerspective(frame, hom_matrix, output, borderMode=cv2.BORDER_REPLICATE)
+    top_down_view : cv2.Mat = cv2.flip(top_down_view, 0)
 
     return top_down_view

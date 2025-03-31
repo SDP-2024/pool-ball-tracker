@@ -4,7 +4,6 @@ import time
 import logging
 from random import randint
 import threading
-from PyQt6.QtWidgets import QApplication
 
 from config.config import ConfigManager
 from config.config_gui import run_config_interface
@@ -28,12 +27,12 @@ logging.basicConfig(
 )
 
 # Main function
-def main():
+def main() -> None:
     """
     Main function for running the pool-pal computer vision system
     """
 
-    args = parse_args()
+    args : argparse.Namespace = parse_args()
 
     if args.config and args.calibrate:
         logger.error("Cannot run config and calibrate interface at the same time. Selecting config.")
@@ -57,9 +56,9 @@ def main():
 
     # Process either static image or a live webcam feed
     if args.file is not None:
-        frame = cv2.imread(args.file)
+        frame : cv2.Mat = cv2.imread(args.file)
     else:
-        camera = load_camera(config)
+        camera : cv2.VideoCapture = load_camera(config)
         # Read frames
         ret, frame = camera.read()
         if not ret:
@@ -71,20 +70,20 @@ def main():
     undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
 
     # Select points and compute homography
-    table_pts = manage_point_selection(undistorted_frame)
+    table_pts : np.ndarray = manage_point_selection(undistorted_frame)
     if table_pts is None:
         logger.error("Table points not selected. Exiting.")
         return
     
-    table_rect = np.float32([
+    table_rect : np.float32 = np.float32([
         [0, 0], 
         [config.output_width, 0], 
         [0, config.output_height], 
         [config.output_width, config.output_height]
     ])
-    homography_matrix = cv2.getPerspectiveTransform(table_pts,table_rect)
+    homography_matrix : cv2.Mat = cv2.getPerspectiveTransform(table_pts,table_rect)
 
-    undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
+    undistorted_frame : cv2.Mat = get_top_down_view(undistorted_frame,homography_matrix)
 
     # If networking is enabled, start the server
     network = None
@@ -120,19 +119,19 @@ def main():
                 continue 
         
         # Undistort camera
-        undistorted_frame = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
+        undistorted_frame : cv2.Mat = undistort_camera(config, frame, mtx, dist, newcameramtx, roi)
 
         # Get top-down view of the table
-        undistorted_frame = get_top_down_view(undistorted_frame,homography_matrix)
+        undistorted_frame : cv2.Mat = get_top_down_view(undistorted_frame,homography_matrix)
         
         # Process optional arguments
         if args.collect_ae_data: 
-            capture_frame(config, undistorted_frame)
+            capture_frame(config.clean_images_path, undistorted_frame)
         if args.collect_model_images:
-            capture_frame_for_training(config, undistorted_frame)
+            capture_frame(config.model_training_path, undistorted_frame)
 
         # Copy frame for drawing
-        drawing_frame = undistorted_frame.copy()
+        drawing_frame : cv2.Mat = undistorted_frame.copy()
 
         # Detect and draw to frame
         detections, labels= detection_model.detect(undistorted_frame)
@@ -143,8 +142,8 @@ def main():
         
         # Detect anomalies in the frame if required
         if not args.collect_ae_data and not args.no_anomaly:
-            table_only = detection_model.extract_bounding_boxes(undistorted_frame, detections)
-            is_anomaly = autoencoder.detect_anomaly(table_only)
+            table_only : cv2.Mat = detection_model.extract_bounding_boxes(undistorted_frame, detections)
+            is_anomaly : bool = autoencoder.detect_anomaly(table_only)
             if is_anomaly:
                 cv2.rectangle(drawing_frame, (config.output_width // 2 - 350, config.output_height // 2 - 50), (config.output_width // 2 + 310, config.output_height // 2 + 10), (0, 0, 0), -1)
                 cv2.putText(drawing_frame, "Obstruction Detected", ((config.output_width // 2) - 350 , config.output_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3, cv2.LINE_AA)
@@ -166,12 +165,9 @@ def main():
         network.disconnect()
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     """
-    Parses command-line arguments to select a configuration profile.
-
-    Returns:
-        str: The name of the selected profile (default is 'default').
+    Parses command-line arguments to run the program with the flags.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -225,8 +221,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_camera(config):
-    # Attempt to load cameras
+def load_camera(config) -> cv2.VideoCapture | None:
+    """
+    This function loads the camera from the camera port specified in the config.
+    It uses the MSMF backend to allow the camera to run at it's native resolution.
+    """
     try:
         logger.info("Starting camera...")
         camera = cv2.VideoCapture(config.camera_port, cv2.CAP_MSMF)
@@ -239,42 +238,38 @@ def load_camera(config):
         return
 
 
-def capture_frame_for_training(config, frame):
-    path=f"./{config.model_training_path}/"
+def capture_frame(path : str, frame : cv2.Mat) -> None:
+    """
+    This function captures a the current frame and saves it to the specified path.
+    """
+    path : str = f"./{path}/"
     if not os.path.exists(path):
         os.makedirs(path)
 
     if cv2.waitKey(1) & 0xFF == ord('t'):
-        num = randint(0, 10000)
-        filename = f"{path}train_{num}.jpg"
+        num : int = randint(0, 10000)
+        filename : str = f"{path}image_{num}.jpg"
         cv2.imwrite(filename, frame)
         time.sleep(0.1)
         logger.info(f"Image {num} saved")
 
 
-def capture_frame(config, frame):
-    path = f"./{config.clean_images_path}/"
-    if not os.path.exists(path):
-        os.makedirs(path)
-    
-    if cv2.waitKey(1) & 0xFF == ord('t'):
-        num = randint(0, 10000)
-        filename = f"{path}clean_{num}.jpg"
-        cv2.imwrite(filename, frame)
-        time.sleep(0.1)
-        logger.info(f"Image {num} saved")
-
-
-def reset_ae_data(config):
-    path = f"./{config.clean_images_path}/"
+def reset_ae_data(config) -> None:
+    """
+    This deletes the clean images path so that the autoencoder can be made with fresh images.
+    """
+    path : str = f"./{config.clean_images_path}/"
     if os.path.exists(path):
         for file in os.listdir(path):
             os.remove(path + file)
         logger.info("Data reset.")
 
 
-def reset_points():
-    path = "./config/table_points.json"
+def reset_points() -> None:
+    """
+    This deletes the table points so that new points can be selected.
+    """
+    path : str = "./config/table_points.json"
     if os.path.exists(path):
         os.remove(path)
         logger.info("Points reset.")

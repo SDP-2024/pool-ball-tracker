@@ -11,9 +11,9 @@ class ConfigManager:
     This is intended to allow all variables to be modified in real-time.
     This will aid in the grid-mode calibration functionality
     """
-    def __init__(self):
+    def __init__(self) -> None:
 
-        self.schema = {
+        self.schema : dict = {
             "camera_port" : {"type": "integer", "min": 0,"default": 0},
             "calibrate_camera": {"type": "boolean", "default": False},
             "calibration_folder": {"type" : "string", "min" : 0, "default": ""},
@@ -31,6 +31,7 @@ class ConfigManager:
             "clean_images_path": {"type": "string", "min" : 0, "default": ""},
             "model_training_path" : {"type": "string", "min": 0, "default": ""},
             "anomaly_threshold": {"type": "float", "min": 0, "max": 1.0, "default": 0.1},
+            "anomaly_buffer_size": {"type": "integer", "min": 1, "max": 50, "default": 6},
             "autoencoder_model_path": {"type": "string", "min" : 0, "default": ""},
             "network_update_interval": {"type": "float", "min": 0.01, "default": 0.5},
             "position_threshold": {"type": "integer", "min": 0, "max": 100, "default": 3},
@@ -39,7 +40,8 @@ class ConfigManager:
             "output_width": {"type": "integer", "min": 640, "max": 4096, "default": 1200},
             "output_height": {"type": "integer", "min": 480, "max": 2160,"default": 600},
             "hole_threshold": {"type": "integer", "min": 0, "max": 100, "default": 30},
-            "calibration_mode": {"type": "integer", "min": -1, "max": 3, "default": -1}
+            "calibration_mode": {"type": "integer", "min": -1, "max": 3, "default": -1},
+            "ball_area" : {"type": "integer", "min": 1000, "max": 10000, "default": 3000}
             }
         # Define member variable for all config options
         for key in self.schema.keys():
@@ -49,29 +51,13 @@ class ConfigManager:
         self.load_config()
 
 
-    def load_config(self, path="../config"):
+    def load_config(self, path : str ="../config") -> None:
         """
-        Loads the configuration for the specified profile from a YAML configuration file.
-
-        This function reads the configuration file, validates it, and returns the settings
-        for the specified profile. If the profile is not found, it falls back to the default
-        profile or creates a new default configuration if the file is missing.
-
-        Args:
-            profile (str): The name of the profile to load from the configuration file.
-            path (str, optional): The path to the directory containing the configuration file.
-                                Defaults to "../config", which looks for the config.yaml
-                                file in the parent directory.
-
-        Returns:
-            dict: The configuration settings for the specified profile, or the default profile 
-                if the specified profile is not found.
+        Loads the configuration profile for the program.
+        It will create a new config file if one does not exist at the specified path.
         """
-
-        # Get the script's directory (src directory)
         script_dir = os.path.dirname(os.path.abspath(__file__))
         
-        # If path is default (../config), go up one level and look into the config folder
         if path == "../config":
             yaml_path = os.path.join(script_dir, path, "config.yaml")
         else:
@@ -93,15 +79,9 @@ class ConfigManager:
             self.create_config()
         
 
-    def verify_config(self, data):
+    def verify_config(self, data : dict) -> bool:
         """
-        Validates the loaded configuration data using a predefined schema.
-
-        Args:
-            data (dict): The configuration data to validate.
-
-        Returns:
-            bool: True if the configuration is valid, False otherwise.
+        Validates the loaded configuration data using the schema defined in self.schema
         """
         validator = Validator(self.schema)
         if validator.validate(data):
@@ -112,23 +92,24 @@ class ConfigManager:
             return False
         
 
-    def create_config(self):
+    def create_config(self) -> None:
         """
-        Creates and saves a default configuration to the specified YAML file.
-        Returns:
-            dict: The default configuration settings.
+        Creates and saved a new configuration file. It also loads the default values into the config instance.
         """
 
-        config = {key: value.get('default') for key, value in self.schema.items()}
+        config : dict = {key: value.get('default') for key, value in self.schema.items()}
         
         self.save_config(config)
         self.set_all_values(config)
 
 
-    def save_config(self, config=None):
-        yaml_path = self._get_yaml_path()
+    def save_config(self, config : dict =None):
+        """
+        Saves the config file to the specified path.
+        """
+        yaml_path : str = self._get_yaml_path()
         if config is None:
-            config = self.get_all_values()
+            config : dict = self.get_all_values()
         try:
             # Save the profiles to the config.yaml file
             with open(yaml_path, 'w') as yaml_file:
@@ -139,17 +120,17 @@ class ConfigManager:
             logger.error(f"Error writing config.yaml: {e}")
             return None
         
-    def set_all_values(self, data):
+    def set_all_values(self, data : dict) -> None:
+        """
+        Sets the attributes within the config class for every item in the config file.
+        """
         for key in self.schema.keys():
             setattr(self, key, data[key])
 
 
-    def get_all_values(self):
+    def get_all_values(self) -> dict:
         """
         Retrieves all configuration values from the class attributes.
-
-        Returns:
-            dict: A dictionary containing all configuration values.
         """
         config_values = {}
         for key in self.schema.keys():
@@ -157,16 +138,17 @@ class ConfigManager:
         return config_values
 
         
-    def _get_yaml_path(self, path="../config"):
-        # Get the script's directory (src directory)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+    def _get_yaml_path(self, path : str ="../config") -> str:
+        """
+        Gets the full yaml path of the configuration file.
+        """
+        script_dir : str = os.path.dirname(os.path.abspath(__file__))
         
-        # If path is default (../config), go up one level and look into the config folder
         if path == "../config":
-            yaml_path = os.path.join(script_dir, path, "config.yaml")
+            yaml_path : str = os.path.join(script_dir, path, "config.yaml")
         else:
             # If another path is provided, use it directly
-            yaml_path = os.path.join(path)
+            yaml_path : str = os.path.join(path)
         return yaml_path
         
 
