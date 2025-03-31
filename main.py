@@ -143,7 +143,7 @@ def main() -> None:
         state_manager.update(detections, labels, drawing_frame)
         
         # Detect anomalies in the frame if required
-        if not args.collect_ae_data and not args.no_anomaly:
+        if not args.collect_ae_data and not args.no_anomaly and not network.gantry_moving:
             table_only : cv2.Mat = detection_model.extract_bounding_boxes(undistorted_frame, detections)
             is_anomaly : bool = autoencoder.detect_anomaly(table_only)
             if is_anomaly:
