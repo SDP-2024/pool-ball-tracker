@@ -147,11 +147,11 @@ def main() -> None:
             table_only : cv2.Mat = detection_model.extract_bounding_boxes(undistorted_frame, detections)
             is_anomaly : bool = autoencoder.detect_anomaly(table_only)
             if is_anomaly:
-                anomaly = True
                 cv2.rectangle(drawing_frame, (config.output_width // 2 - 350, config.output_height // 2 - 50), (config.output_width // 2 + 310, config.output_height // 2 + 10), (0, 0, 0), -1)
                 cv2.putText(drawing_frame, "Obstruction Detected", ((config.output_width // 2) - 350 , config.output_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3, cv2.LINE_AA)
                 cv2.imshow("Detection", drawing_frame)
-                if network:
+                if network and not anomaly:
+                    anomaly = True
                     network.send_obstruction("true")
                 else:
                     logger.info(f"Obstruction detected: {is_anomaly}")
