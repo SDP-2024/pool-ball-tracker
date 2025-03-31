@@ -45,6 +45,10 @@ class StateManager():
         current_time : float = time.time()
         if current_time - self.time_since_last_update < self.time_between_updates: return
 
+        # If the gantry is moving and not already tracking the hidden state then set it to the last seen state
+        if self.network.gantry_moving and self.hidden_state is None:
+            self.hidden_state = self.previous_state
+
         balls : dict = {}
         corrected_white_ball : dict = {}
 
@@ -55,10 +59,8 @@ class StateManager():
         if data is not None or len(data) != 0 or data[0].boxes is not None:
             boxes = data[0].boxes
 
-        # If gantry is moving then save the previous state and can begin adding balls that are revealed
+        # If gantry is moving then begin adding balls that are revealed
         if self.network.gantry_moving:
-            self.hidden_state = self.previous_state if self.previous_state is not None else None
-            self.network.gantry_moving = False
             for ball in boxes:
                 classname, middlex, middley = self._get_ball_info(ball, labels)
                 if classname == "arm" or classname == "hole":
@@ -72,10 +74,12 @@ class StateManager():
                 cv2.imshow("Detection", frame)
                 if self.hidden_state and classname in self.hidden_state:
                     for saved_ball in self.hidden_state[classname]:
+                        # If a ball appears that hasn't "moved" (is close to another one in the dict), then add it
                         if not self._has_not_moved(saved_ball, middlex, middley):
-                            if classname not in self.hidden_state:
-                                    self.hidden_state[classname] = []
                             self.hidden_state[classname].append({'x': middlex, 'y': middley})
+
+                if classname not in self.hidden_state:
+                    self.hidden_state[classname] = []
 
 
         # Process detected balls
@@ -120,8 +124,15 @@ class StateManager():
         
         # Handle the sending of the hidden state if the gantry is back at origin and reset
         if self.hidden_state is not None and self.network.finished_move:
+            self.previous_state = self.hidden_state
             balls = self.hidden_state
+            logger.info(f"Hidden state: {self.hidden_state}")
             self.hidden_state = None
+            self.network.finished_move = False
+            # Update the socket with the new state
+            self._update_and_send_balls(balls, corrected_white_ball, current_time)
+            self._handle_end_of_turn()
+            return
 
         # Update the socket with the new state
         self._update_and_send_balls(balls, corrected_white_ball, current_time)
@@ -189,7 +200,7 @@ class StateManager():
                 self.network.send_balls({"balls": balls})
             else:
                 logger.info(f"Sending balls: {balls}")
-        self._send_white_ball(white_ball, current_time)
+            self._send_white_ball(white_ball, current_time)
 
 
     def _send_white_ball(self, ball, current_time : float) -> None:

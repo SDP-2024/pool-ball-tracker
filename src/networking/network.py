@@ -19,6 +19,7 @@ class Network:
         self.gantry_moving : bool = False
         self.finished_move_counter : int = 0
         self.finished_hit : bool = False
+        self.moving_to_origin : bool = False
 
         @self.sio.event
         def connect() -> None:
@@ -30,6 +31,7 @@ class Network:
             self.sio.emit("join", "correctedPositions")
             self.sio.emit("join", "finishedMove")
             self.sio.emit("join", "finishedHit")
+            self.sio.emit("join", "move")
 
 
         @self.sio.event
@@ -49,6 +51,10 @@ class Network:
         @self.sio.on("finishedHit")
         def handle_finished_hit(data) -> None:
             self._handle_finished_hit(data)
+
+        @self.sio.on("move")
+        def handle_move(data) -> None:
+            self._handle_move(data)
 
 
     def _reconnect(self) -> None:
@@ -82,12 +88,13 @@ class Network:
         This is required for disabling the obstruction detection during movement.
         """
         self.finished_move_counter += 1
-        if self.finished_hit:
-            self.finished_move_counter = 0
-            self.gantry_moving = True
-        elif self.finished_move_counter == 1 and self.finished_hit:
+        logger.info("Finished move")
+        if self.moving_to_origin:
             self.finished_move = True
+            self.moving_to_origin = False
+            self.gantry_moving = False
             self.finished_move_counter = 0
+            logger.info("Finished move, gantry back at origin.")
 
 
     def _handle_finished_hit(self, data) -> None:
@@ -96,6 +103,14 @@ class Network:
         This is for tracking the origin point for balls that may be hidden by the hitting mechanism
         """
         self.finished_hit = True
+        self.finished_move_counter = 0
+        logger.info("Hit finished, moving back to origin.")
+
+    def _handle_move(self, data) -> None:
+        self.gantry_moving = True
+        if (int(data['x']) == 0 and int(data['y'] == 0)):
+            self.moving_to_origin = True
+        logger.info("Gantry moving.")
 
 
     def send_balls(self, balls : dict) -> None:
