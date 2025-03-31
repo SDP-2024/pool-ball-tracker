@@ -85,6 +85,12 @@ def main() -> None:
 
     undistorted_frame : cv2.Mat = get_top_down_view(undistorted_frame,homography_matrix)
 
+    # Initialise autoencoder
+    autoencoder = None
+    if not args.collect_ae_data and not args.no_anomaly:
+        autoencoder = AutoEncoder(config)
+        anomaly = False
+        
     # If networking is enabled, start the server
     network = None
     if config.use_networking:
@@ -101,10 +107,6 @@ def main() -> None:
     # Initialise detection model
     detection_model = DetectionModel(config)
     
-    # Initialise autoencoder
-    autoencoder = None
-    if not args.collect_ae_data and not args.no_anomaly:
-        autoencoder = AutoEncoder(config)
     if detection_model.model is None: # Check if model loaded successfully
         return
     
@@ -145,6 +147,7 @@ def main() -> None:
             table_only : cv2.Mat = detection_model.extract_bounding_boxes(undistorted_frame, detections)
             is_anomaly : bool = autoencoder.detect_anomaly(table_only)
             if is_anomaly:
+                anomaly = True
                 cv2.rectangle(drawing_frame, (config.output_width // 2 - 350, config.output_height // 2 - 50), (config.output_width // 2 + 310, config.output_height // 2 + 10), (0, 0, 0), -1)
                 cv2.putText(drawing_frame, "Obstruction Detected", ((config.output_width // 2) - 350 , config.output_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3, cv2.LINE_AA)
                 cv2.imshow("Detection", drawing_frame)
@@ -152,6 +155,10 @@ def main() -> None:
                     network.send_obstruction("true")
                 else:
                     logger.info(f"Obstruction detected: {is_anomaly}")
+            # Send false if obstruction has been removed
+            elif not is_anomaly and anomaly:
+                anomaly = False
+                network.send_obstruction("false")
 
         # Exit if 'q' pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
