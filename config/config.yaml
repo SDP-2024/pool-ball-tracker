@@ -23,4 +23,4 @@ output_width: 1200
 output_height: 600
 hole_threshold: 30
 calibration_mode: -1
-ball_area: 3500
+ball_area: 4500
