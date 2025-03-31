@@ -16,7 +16,7 @@ anomaly_threshold: 0.013
 anomaly_buffer_size: 4
 autoencoder_model_path: "model/autoencoder_model.keras"
 network_update_interval: 0.1
-position_threshold: 3
+position_threshold: 6
 poolpal_url: "http://poolpal.joshn.uk"
 poolpal_subdomain: "pool-pal"
 output_width: 1200
