@@ -41,7 +41,8 @@ class ConfigManager:
             "output_height": {"type": "integer", "min": 480, "max": 2160,"default": 600},
             "hole_threshold": {"type": "integer", "min": 0, "max": 100, "default": 30},
             "calibration_mode": {"type": "integer", "min": -1, "max": 3, "default": -1},
-            "ball_area" : {"type": "integer", "min": 1000, "max": 10000, "default": 3000}
+            "ball_area" : {"type": "integer", "min": 1000, "max": 10000, "default": 3000},
+            "use_hidden_balls" : {"type" : "boolean", "default" : True}
             }
         # Define member variable for all config options
         for key in self.schema.keys():

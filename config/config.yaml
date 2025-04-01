@@ -24,3 +24,4 @@ output_height: 600
 hole_threshold: 30
 calibration_mode: -1
 ball_area: 4500
+use_hidden_balls: True
