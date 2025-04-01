@@ -73,13 +73,19 @@ class StateManager():
 
                 cv2.imshow("Detection", frame)
                 if self.hidden_state and classname in self.hidden_state:
-                    for saved_ball in self.hidden_state[classname]:
-                        # If a ball appears that hasn't "moved" (is close to another one in the dict), then add it
-                        if not self._has_not_moved(saved_ball, middlex, middley):
-                            self.hidden_state[classname].append({'x': middlex, 'y': middley})
+                    # Increase threshold in origin area
+                    if middlex >= 0 and middlex <= 400 and middley >= 0 and middley <= 300:
+                        if any(self._has_not_moved(saved_ball, middlex, middley, self.config.position_threshold * 3) for saved_ball in self.hidden_state[classname]):
+                            continue
+                    else:
+                        # Check if the ball has already been added
+                        if any(self._has_not_moved(saved_ball, middlex, middley) for saved_ball in self.hidden_state[classname]):
+                            continue
+                    
 
                 if classname not in self.hidden_state:
                     self.hidden_state[classname] = []
+                self.hidden_state[classname].append({'x': middlex, 'y': middley})
 
 
         # Process detected balls
@@ -123,13 +129,18 @@ class StateManager():
             return
         
         # Handle the sending of the hidden state if the gantry is back at origin and reset
-        if self.hidden_state is not None and self.network.finished_move:
+        if self.hidden_state is not None and self.network.gantry_moving:
             self.previous_state = self.hidden_state
             balls = self.hidden_state
             logger.info(f"Hidden state: {self.hidden_state}")
-            self.hidden_state = None
             self.network.finished_move = False
             # Update the socket with the new state
+            self._update_and_send_balls(balls, corrected_white_ball, current_time)
+            return
+        
+        if self.hidden_state is not None and self.network.finished_move:
+            self.hidden_state = None
+            balls = self.hidden_state
             self._update_and_send_balls(balls, corrected_white_ball, current_time)
             self._handle_end_of_turn()
             return
@@ -167,13 +178,15 @@ class StateManager():
         return int(middlex), int(middley)
     
 
-    def _has_not_moved(self, prev_ball, middlex : int, middley : int) -> bool:
+    def _has_not_moved(self, prev_ball, middlex : int, middley : int, threshold : int = None) -> bool:
         """
         Checks if the ball is close to a previous position
         """
+        if threshold == None:
+            threshold = self.config.position_threshold
         dx : int = abs(prev_ball["x"] - middlex)
         dy : int = abs(prev_ball["y"] - middley)
-        return dx <= self.config.position_threshold and dy <= self.config.position_threshold
+        return dx <= threshold and dy <= threshold
     
 
     def _handle_end_of_turn(self) -> None:

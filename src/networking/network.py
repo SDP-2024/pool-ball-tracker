@@ -89,12 +89,9 @@ class Network:
         """
         self.finished_move_counter += 1
         logger.info("Finished move")
-        if self.moving_to_origin:
-            self.finished_move = True
-            self.moving_to_origin = False
-            self.gantry_moving = False
-            self.finished_move_counter = 0
-            logger.info("Finished move, gantry back at origin.")
+        self.finished_move = True
+        self.moving_to_origin = False
+        self.gantry_moving = False
 
 
     def _handle_finished_hit(self, data) -> None:
@@ -103,7 +100,6 @@ class Network:
         This is for tracking the origin point for balls that may be hidden by the hitting mechanism
         """
         self.finished_hit = True
-        self.finished_move_counter = 0
         logger.info("Hit finished, moving back to origin.")
 
     def _handle_move(self, data) -> None:
