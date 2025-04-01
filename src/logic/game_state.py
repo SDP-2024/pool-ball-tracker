@@ -60,7 +60,7 @@ class StateManager():
             boxes = data[0].boxes
 
         # If gantry is moving then begin adding balls that are revealed
-        if self.network.gantry_moving:
+        if self.network.gantry_moving and self.config.use_hidden_balls:
             for ball in boxes:
                 classname, middlex, middley = self._get_ball_info(ball, labels)
                 if classname == "arm" or classname == "hole":
@@ -75,7 +75,7 @@ class StateManager():
                 if self.hidden_state and classname in self.hidden_state:
                     # Increase threshold in origin area
                     if middlex >= 0 and middlex <= 400 and middley >= 0 and middley <= 300:
-                        if any(self._has_not_moved(saved_ball, middlex, middley, self.config.position_threshold * 3) for saved_ball in self.hidden_state[classname]):
+                        if any(self._has_not_moved(saved_ball, middlex, middley, self.config.position_threshold * 5) for saved_ball in self.hidden_state[classname]):
                             continue
                     else:
                         # Check if the ball has already been added
