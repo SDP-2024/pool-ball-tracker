@@ -74,13 +74,8 @@ class StateManager():
                 cv2.imshow("Detection", frame)
                 if self.hidden_state and classname in self.hidden_state:
                     # Increase threshold in origin area
-                    if middlex >= 0 and middlex <= 400 and middley >= 0 and middley <= 300:
-                        if any(self._has_not_moved(saved_ball, middlex, middley, self.config.position_threshold * 5) for saved_ball in self.hidden_state[classname]):
-                            continue
-                    else:
-                        # Check if the ball has already been added
-                        if any(self._has_not_moved(saved_ball, middlex, middley) for saved_ball in self.hidden_state[classname]):
-                            continue
+                    if any(self._has_not_moved(saved_ball, middlex, middley, self.config.position_threshold * 3) for saved_ball in self.hidden_state[classname]):
+                        continue
                     
 
                 if classname not in self.hidden_state:
