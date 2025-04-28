@@ -1,6 +1,8 @@
 # **Pool-Pal - Computer Vision**
 
-## **Overview**
+**Please use [https://github.com/Fergus-Gault/pool_ball_tracker] instead**
+
+<!-- ## **Overview**
 
 This project performs real time pool ball detection using a trained computer vision model. It is capable of communicating with a gantry system and app, while detecting obstructions on the table.
 
@@ -121,4 +123,4 @@ There are optional arguments for running the program.
 
 ## **License**
 
-This project is licensed under the **MIT License**.
+This project is licensed under the **MIT License**. -->
